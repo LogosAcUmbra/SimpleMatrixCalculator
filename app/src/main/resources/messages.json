@@ -1,0 +1,59 @@
+{
+  "promptMsgIndent": {
+    "ask": 0,
+    "err": 1,
+    "quitMsg": 0
+  },
+  "dirMsgIndent": {
+    "title": 0,
+    "txt": 1,
+    "interruptMsg": 1,
+    "finishMsg": 1
+  },
+  "prompt": {
+    "rows": {
+      "ask": "num of rows ('q' to quit action): ",
+      "err": "num of rows must be a positive integer (<%d). Please input again.\n",
+      "quitMsg": "Quitting action...\n",
+      "quitSpecifier": "q"
+    },
+    "cols": {
+      "ask": "num of cols: ",
+      "err": "num of cols must be a positive integer (<%d). Please input again.\n",
+      "quitMsg": "Quitting action...\n",
+      "quitSpecifier": "q"
+    },
+    "elementAt": {
+      "ask": "element at pos ( %d , %d ): ",
+      "err": "elements have to be in decimal point values. Please input again.\n",
+      "quitMsg": "Matrix Saved. Quitting action...\n",
+      "quitSpecifier": "q"
+    }
+  },
+  "dir": {
+    "menu": {
+      "indentLev": 0,
+      "title": "Menu\n",
+      "txt": {
+        "choices": [
+          "1. Create Matrix\n",
+          "2. Calculations\n",
+          "S. Switch Session\n",
+          "Q. quit\n"
+        ]
+      },
+      "interruptMsg": null,
+      "finishMsg": "Program Ended\n"
+    },
+    "createMatrix": {
+      "indentLev": 1,
+      "title": "Create Matrix\n",
+      "txt": {
+        "sizeHeader": "Please input the size of your matrix:\n",
+        "elementsHeader": "\nPlease input the elements:\n"
+      },
+      "interruptMsg": "Matrix Saved. Quitting action...\n\n",
+      "finishMsg": "Matrix Created.\n\n"
+    }
+  }
+}

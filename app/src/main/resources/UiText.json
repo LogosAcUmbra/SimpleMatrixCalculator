@@ -1,16 +1,16 @@
 {
-  "promptMsgIndent": {
-    "ask": 0,
-    "err": 1,
-    "quitMsg": 0
+  "promptIndentFormat": {
+    "ask": 1,
+    "err": 2,
+    "quitMsg": 1
   },
-  "dirMsgIndent": {
+  "dirIndentFormat": {
     "title": 0,
-    "txt": 1,
+    "body": 1,
     "interruptMsg": 1,
     "finishMsg": 1
   },
-  "prompt": {
+  "prompts": {
     "rows": {
       "ask": "num of rows ('q' to quit action): ",
       "err": "num of rows must be a positive integer (<%d). Please input again.\n",
@@ -30,7 +30,7 @@
       "quitSpecifier": "q"
     }
   },
-  "dir": {
+  "dirs": {
     "menu": {
       "indentLev": 0,
       "title": "Menu\n",
@@ -48,9 +48,15 @@
     "createMatrix": {
       "indentLev": 1,
       "title": "Create Matrix\n",
-      "txt": {
-        "sizeHeader": "Please input the size of your matrix:\n",
-        "elementsHeader": "\nPlease input the elements:\n"
+      "body": {
+        "sizeHeader": {
+          "indentLev": 0,
+          "line": "Please input the size of your matrix:\n"
+        },
+        "elementsHeader": {
+          "indentLev": 0,
+          "line": "Please input the elements:\n"
+        }
       },
       "interruptMsg": "Matrix Saved. Quitting action...\n\n",
       "finishMsg": "Matrix Created.\n\n"

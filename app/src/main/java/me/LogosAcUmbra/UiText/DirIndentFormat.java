@@ -1,21 +1,21 @@
-package me.LogosAcUmbra.Message;
+package me.LogosAcUmbra.UiText;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public record DirMsgIndent (
-    int title, int txt, int interruptMsg, int finishMsg
+public record DirIndentFormat(
+    int title, int body, int interruptMsg, int finishMsg
 ) {
-    public DirMsgIndent(
+    public DirIndentFormat(
             @JsonProperty("title") int title,
-            @JsonProperty("txt") int txt,
+            @JsonProperty("body") int body,
             @JsonProperty("interruptMsg") int interruptMsg,
             @JsonProperty("finishMsg") int finishMsg
     ) {
         if (title < 0) {
             throw new IllegalArgumentException("msgIndent for title must be > 0");
         }
-        if (txt < 0) {
-            throw new IllegalArgumentException("msgIndent for txt must be > 0");
+        if (body < 0) {
+            throw new IllegalArgumentException("msgIndent for body must be > 0");
         }
         if (interruptMsg < 0) {
             throw new IllegalArgumentException("msgIndent for interruptMsg must be > 0");
@@ -25,7 +25,7 @@ public record DirMsgIndent (
         }
 
         this.title = title;
-        this.txt = txt;
+        this.body = body;
         this.interruptMsg = interruptMsg;
         this.finishMsg = finishMsg;
     }

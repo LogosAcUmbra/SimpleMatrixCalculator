@@ -1,4 +1,4 @@
-package me.LogosAcUmbra.trialCalculator;
+package me.LogosAcUmbra.SimpleMatrixCalculator;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -6,7 +6,6 @@ import java.util.Optional;
 
 import org.ejml.data.DMatrixRMaj;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 public class Section {
     private final HashMap<@NonNull String, @NonNull DMatrixRMaj> matrices = new HashMap<>();

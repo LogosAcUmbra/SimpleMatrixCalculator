@@ -1,8 +1,4 @@
-package me.LogosAcUmbra.trialCalculator;
-
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Arrays;
+package me.LogosAcUmbra.SimpleMatrixCalculator;
 
 public class App {
 
@@ -10,11 +6,11 @@ public class App {
         Interactor interactor;
         try {
             interactor = new Interactor();
-        } catch (IOException e) {
+            interactor.start();
+        } catch (Exception e) {
             e.printStackTrace();
             return;
         }
-        interactor.start();
 
     }
 }

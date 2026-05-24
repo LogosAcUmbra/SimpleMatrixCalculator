@@ -86,6 +86,11 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
     }
 
     @Override
+    public @NonNull JsonNode getRawNode() {
+        return rawNode;
+    }
+
+    @Override
     public int getIndentLev() throws IllegalStateException {
         return parentTotalIndentLev;
     }

@@ -2,6 +2,7 @@ package me.LogosAcUmbra.UiText;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.JsonNodeType;
 
 public non-sealed class MissingNode extends UiTextNode {
@@ -38,6 +39,11 @@ public non-sealed class MissingNode extends UiTextNode {
 
     @Override
     public @NonNull String get(Object... args) throws IllegalStateException {
+        throw nodeIsMissingException();
+    }
+
+    @Override
+    public JsonNode getRawNode() {
         throw nodeIsMissingException();
     }
 

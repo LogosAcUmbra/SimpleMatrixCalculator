@@ -77,7 +77,10 @@ public class LeafNode extends ExistingNode {
             }
             JsonNode lineJNode = rawNode.path("line");
             if (lineJNode.isMissingNode()) {
-                throw new IllegalArgumentException("node is map but node.line is missing");
+                return new LeafNode(
+                        rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
+                        null
+                );
             }
             if (!lineJNode.isString()) {
                 throw new IllegalArgumentException("node is map but node.line is not a string");
@@ -97,6 +100,9 @@ public class LeafNode extends ExistingNode {
 
     /**
      * access: package + child
+     * <p>
+     *     null, String, {"indentLev": int, Optional("text": String]) }
+     * </p>
      * @param rawNode a <b> NOT MISSING </b> JsonNode instance
      * @param parentTotalIndentLev parentTotalIndentLev
      * @param defaultIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
@@ -122,13 +128,21 @@ public class LeafNode extends ExistingNode {
             return Optional.empty();
         }
         JsonNode lineJNode = rawNode.path("line");
-        if (lineJNode.isMissingNode() || !lineJNode.isString()) {
-            return Optional.empty();
+        if (!lineJNode.isMissingNode()) {
+            if (!lineJNode.isString()) {
+                return Optional.empty();
+            }
+            return Optional.of(
+                    new LeafNode(
+                            rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
+                            lineJNode.stringValue()
+                    )
+            );
         }
         return Optional.of(
                 new LeafNode(
                         rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
-                        lineJNode.stringValue()
+                        null
                 )
         );
     }

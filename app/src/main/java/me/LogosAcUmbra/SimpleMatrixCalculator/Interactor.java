@@ -4,7 +4,6 @@ import me.LogosAcUmbra.UiText.*;
 import me.LogosAcUmbra.Utils.Utils;
 import org.ejml.data.DMatrixRMaj;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Scanner;
 
@@ -18,27 +17,20 @@ public class Interactor {
     private final boolean zeroIndexing = false;
     private final int matSizeUpperBound = 20;
 
-    public Interactor() throws IOException {
+    public Interactor() {
         textManager = UiTextManager.getInstance();
     }
 
 
     public void start() {
         createMatrix();
+        menu();
         scanner.next(); // pause to let me see result of program
     }
 
+    private void menu() {
 
-//    /**
-//     * New Helper: Simplifies getting a message and applying indentation + arguments.
-//     */
-//    private String getMsg(String key, String indent, Object... args) {
-//        // We combine the indent and the args into one array for String.format
-//        Object[] formatArgs = new Object[args.length + 1];
-//        formatArgs[0] = indent;
-//        System.arraycopy(args, 0, formatArgs, 1, args.length);
-//        return String.format(messages.getString(key), formatArgs);
-//    }
+    }
 
     private void createMatrix() {
         PromptGroupNode prompts = textManager.root().prompts();
@@ -85,9 +77,8 @@ public class Interactor {
         PromptGroupNode elementsIndentedPrompts = prompts.useIndentOf(elementsHeaderNode);
         // elementAt
         PromptNode elementAtNode = elementsIndentedPrompts.elementAt();
-        String name = "A";
-        section.addMatrix(name, rows, cols);
-        DMatrixRMaj mat = section.getMat(name).orElseThrow();
+        String name = section.getUnusedDefaultName();
+        DMatrixRMaj mat = section.addMatrix(name, rows, cols);
 
         for (int r = 0; r < rows; ++r) {
             for (int c = 0; c < cols; ++c) {
@@ -200,7 +191,7 @@ public class Interactor {
                 return d;
             }
             System.out.print(incorrectMsg + askMsg);
-            continue;
+            // continue
         }
     }
     private double askUntilDouble(String askMsg, String incorrectMsg) {

@@ -9,18 +9,33 @@ import org.jspecify.annotations.NonNull;
 
 public class Section {
     private final HashMap<@NonNull String, @NonNull DMatrixRMaj> matrices = new HashMap<>();
+    private String defaultMatrixName = "T";
 
-    protected boolean isMatNameNotUsed(@NonNull String matName) {
-        return Objects.isNull(matrices.get(matName));
+    boolean isMatNameNotUsed(@NonNull String matName) {
+        return matrices.containsKey(matName);
     }
-    protected void addMatrix(@NonNull String matName, @NonNull DMatrixRMaj mat) {
-        matrices.put(matName, mat);
+
+    String getUnusedDefaultName() {
+        String name = defaultMatrixName;
+        if (!matrices.containsKey(name)) {
+            return name;
+        }
+        int i = 1;
+        while (true) {
+            name = defaultMatrixName + i;
+            if (!matrices.containsKey(name)) {
+                return name;
+            }
+            ++i;
+        }
     }
-    protected void addMatrix(@NonNull String matName, int r, int c) {
+
+    DMatrixRMaj addMatrix(@NonNull String matName, int r, int c) {
         DMatrixRMaj mat = new DMatrixRMaj(r, c);
         matrices.put(matName, mat);
+        return mat;
     }
-    protected boolean setMatElem(@NonNull String matName, int r, int c, double elem) {
+    boolean setMatElem(@NonNull String matName, int r, int c, double elem) {
         DMatrixRMaj mat = matrices.get(matName);
         if (Objects.isNull(mat)) {
             return false;
@@ -28,10 +43,10 @@ public class Section {
         mat.set(r, c, elem);
         return true;
     }
-    protected Optional<DMatrixRMaj> getMat(@NonNull String matName) {
+    Optional<DMatrixRMaj> getMat(@NonNull String matName) {
         return Optional.ofNullable(matrices.get(matName));
     }
-    protected int getNumMatrices() {
+    int getNumMatrices() {
         return matrices.size();
     }
 }

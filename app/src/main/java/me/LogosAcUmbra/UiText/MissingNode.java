@@ -33,12 +33,12 @@ public non-sealed class MissingNode extends UiTextNode {
     }
 
     @Override
-    public @Nullable String get() throws IllegalStateException {
+    public @Nullable String txt() throws IllegalStateException {
         throw nodeIsMissingException();
     }
 
     @Override
-    public @NonNull String get(Object... args) throws IllegalStateException {
+    public @NonNull String txt(Object... args) throws IllegalStateException {
         throw nodeIsMissingException();
     }
 

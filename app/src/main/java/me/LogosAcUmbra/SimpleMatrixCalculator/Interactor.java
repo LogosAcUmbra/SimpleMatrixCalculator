@@ -36,21 +36,21 @@ public class Interactor {
         PromptGroupNode prompts = textManager.root().prompts();
         DirNode createMatrixDir = textManager.root().dirs().createMatrix();
         // title
-        System.out.print(createMatrixDir.title().get());
+        System.out.print(createMatrixDir.title().txt());
 
         // size header
         UiTextNode sizeHeaderNode = createMatrixDir.body().path("sizeHeader");
         PromptGroupNode sizeIndentedPrompts = prompts.useIndentOf(sizeHeaderNode);
-        System.out.print(sizeHeaderNode.get());
+        System.out.print(sizeHeaderNode.txt());
         // rows
         PromptNode rowsNode = sizeIndentedPrompts.rows();
         int rows = askUntilPositiveInt(
-                rowsNode.ask().get(),
+                rowsNode.ask().txt(),
                 matSizeUpperBound,
-                prompts.rows().quitSpecifier().get(), // no need indent
-                rowsNode.quitMsg().get()
+                prompts.rows().quitSpecifier().txt(), // no need indent
+                rowsNode.quitMsg().txt()
         );
-        createMatrixDir.interruptMsg().get();
+        createMatrixDir.interruptMsg().txt();
 
         if (rows == -1) {
             System.out.println(prompts.rows().useIndentOf(createMatrixDir).quitMsg());
@@ -60,10 +60,10 @@ public class Interactor {
         // cols
         PromptNode colsNode = sizeIndentedPrompts.cols();
         int cols = askUntilPositiveInt(
-                colsNode.ask().get(),
+                colsNode.ask().txt(),
                 matSizeUpperBound,
-                prompts.cols().quitSpecifier().get(), // no need indent
-                colsNode.err().get(matSizeUpperBound)
+                prompts.cols().quitSpecifier().txt(), // no need indent
+                colsNode.err().txt(matSizeUpperBound)
         );
 
         if (cols == -1) {
@@ -86,18 +86,18 @@ public class Interactor {
                 int cOut = (zeroIndexing) ? (c) : (c + 1);
 
                 StringBuilder sb = new StringBuilder();
-                sb.append(elementsHeaderNode.get());
+                sb.append(elementsHeaderNode.txt());
                 sbAppendMat(sb, mat, 2);
 
                 System.out.println(sb);
                 double elem = askUntilFiniteDouble(
-                        elementAtNode.ask().get(rOut, cOut),
-                        prompts.elementAt().quitSpecifier().get(), // no need indent
-                        elementAtNode.err().get()
+                        elementAtNode.ask().txt(rOut, cOut),
+                        prompts.elementAt().quitSpecifier().txt(), // no need indent
+                        elementAtNode.err().txt()
                 );
 
                 if (Double.isNaN(elem)) {
-                    System.out.println(createMatrixDir.interruptMsg().get());
+                    System.out.println(createMatrixDir.interruptMsg().txt());
                     return;
                 }
                 mat.set(r, c, elem);
@@ -105,7 +105,7 @@ public class Interactor {
         }
 
         // Final Success Message
-        System.out.print(createMatrixDir.finishMsg().get(section.getNumMatrices()));
+        System.out.print(createMatrixDir.finishMsg().txt(section.getNumMatrices()));
         StringBuilder finalSb = new StringBuilder();
         sbAppendMat(finalSb, mat, 1);
         System.out.println(finalSb.toString());

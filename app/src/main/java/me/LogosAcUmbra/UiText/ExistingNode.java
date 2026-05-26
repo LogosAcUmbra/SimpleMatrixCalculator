@@ -56,17 +56,22 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
 
     /**
      * access: package + child
-     * @param rawNode a <b> NOT MISSING </b> JsonNode instance
+     * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
      * @param parentTotalIndentLev parentTotalIndentLev
      * @param defaultIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
      * @return a new {@code DynamicBranchNode} or {@code LeafNode} instance
      */
     protected static @NonNull ExistingNode ofExistJNode(JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
-        Optional<LeafNode> opLeaf = LeafNode.tryOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
-        if (opLeaf.isPresent()) {
-            return opLeaf.get();
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        Optional<LeafNode> optLeaf = LeafNode.tryOfInternal(rawNode, indentLev, parentTotalIndentLev);
+        if (optLeaf.isPresent()) {
+            return optLeaf.get();
         }
-        return DynamicBranchNode.ofExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
+        Optional<LeafArrayNode> optLeafArrayNode = LeafArrayNode.tryOfInternal(rawNode, indentLev, parentTotalIndentLev);
+        if (optLeafArrayNode.isPresent()) {
+            return optLeafArrayNode.get();
+        }
+        return DynamicBranchNode.ofInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
     public abstract @NonNull UiTextNode path(@NonNull String propertyName);
@@ -78,10 +83,10 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
     }
 
 
-    public @Nullable String get() throws IllegalStateException {
+    public @Nullable String txt() throws IllegalStateException {
         throw new IllegalStateException(String.format("node (%s) is not a leaf node", rawNode));
     }
-    public @NonNull String get(Object... args) throws IllegalStateException {
+    public @NonNull String txt(Object... args) throws IllegalStateException {
         throw new IllegalStateException(String.format("node (%s) is not a leaf node", rawNode));
     }
 
@@ -98,7 +103,6 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
     public @NonNull JsonNodeType getJsonNodeType() {
         return rawNode.getNodeType();
     }
-
 
 
 }

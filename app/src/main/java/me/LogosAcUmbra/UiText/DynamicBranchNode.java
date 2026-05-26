@@ -38,7 +38,8 @@ public class DynamicBranchNode extends ExistingNode {
         if (rawNode.isMissingNode()) {
             throw new IllegalArgumentException(String.format("rawNode (%s) is a missingNode", rawNode));
         }
-        return ofExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        return ofInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
     public static @NonNull Optional<DynamicBranchNode> tryOf(JsonNode rawNode) {
@@ -58,13 +59,26 @@ public class DynamicBranchNode extends ExistingNode {
 
     /**
      * access: package + child
-     * @param rawNode a <b> NOT MISSING </b> JsonNode instance
+     * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
      * @param parentTotalIndentLev parentTotalIndentLev
      * @param defaultIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
+     * @return a new {@code DynamicBranchNode} instance
+     */
+    protected static @NonNull DynamicBranchNode ofExistJNode(JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        return ofInternal(rawNode, indentLev, parentTotalIndentLev);
+    }
+
+    /**
+     * access: package + child
+     * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
+     * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})
+     * @param parentTotalIndentLev parentTotalIndentLev
      * @return a new DynamicBranchNode instance
      */
-    protected static @NonNull DynamicBranchNode ofExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
-        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+    protected static @NonNull DynamicBranchNode ofInternal(
+            @NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev
+    ) {
         HashMap<String, UiTextNode> pathKeys = (rawNode.isObject()) ? (new HashMap<>()) : (null);
         ArrayList<UiTextNode> pathIndices = (rawNode.isArray()) ? (new ArrayList<>()) : (null);
         return new DynamicBranchNode(rawNode, indentLev, parentTotalIndentLev, pathKeys, pathIndices);

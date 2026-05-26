@@ -36,8 +36,8 @@ public abstract sealed class UiTextNode permits ExistingNode, MissingNode {
     public boolean isNull() { return false; }
     public boolean isString() { return false; }
 
-    public abstract @Nullable String get() throws IllegalStateException;
-    public abstract @NonNull String get(Object... args) throws IllegalStateException;
+    public abstract @Nullable String txt() throws IllegalStateException;
+    public abstract @NonNull String txt(Object... args) throws IllegalStateException;
 
     public abstract JsonNode getRawNode();
     public abstract int getIndentLev() throws IllegalStateException;

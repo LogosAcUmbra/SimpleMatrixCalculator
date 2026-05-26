@@ -3,7 +3,10 @@ package me.LogosAcUmbra.UiText;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.ObjectNode;
 
+import java.util.Map;
 import java.util.Optional;
 
 
@@ -79,16 +82,28 @@ public class LeafNode extends ExistingNode {
             if (!rawNode.isObject()) {
                 throw new IllegalArgumentException("node is neither null, string nor map.");
             }
-            // no need check on indentLev
-            JsonNode lineJNode = rawNode.path("line");
-            if (lineJNode.isMissingNode()) {
+            ObjectNode objNode = rawNode.asObject();
+            JsonNode lineJNode = null;
+            for (Map.Entry<String, JsonNode> pair : objNode.properties()) {
+                if (pair.getKey().equals("indentLev")) {
+                    continue;
+                }
+                if (!pair.getKey().equals("line")) {
+                    throw new IllegalArgumentException("node must has no properties other than \"indentLev\" and \"line\" .");
+                }
+                // pair = "line" entry
+                lineJNode = pair.getValue();
+                // continue // construct after ensuring no other properties
+            }
+            if (lineJNode == null) { // missing node
+                // LeafNode can have no explicit "line" property, assumed to be null
                 return new LeafNode(
                         rawNode, indentLev, parentTotalIndentLev,
                         null
                 );
             }
-            if (!lineJNode.isString()) {
-                throw new IllegalArgumentException("node is map but node.line is not a string");
+            if (!lineJNode.isString()) { // "line" node has illegal value type
+                throw new IllegalArgumentException("node.line has to be a String");
             }
             return new LeafNode(
                     rawNode, indentLev, parentTotalIndentLev,
@@ -116,9 +131,6 @@ public class LeafNode extends ExistingNode {
      * else {@code Optional.empty()}
      */
     static @NonNull Optional<LeafNode> tryOfInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
-        if (rawNode.isMissingNode()) {
-            return Optional.empty();
-        }
         if (rawNode.isNull()) {
             return Optional.of( LeafNode.ofNull(rawNode, indentLev, parentTotalIndentLev) );
         }
@@ -128,22 +140,35 @@ public class LeafNode extends ExistingNode {
         if (!rawNode.isObject()) {
             return Optional.empty();
         }
-        JsonNode lineJNode = rawNode.path("line");
-        if (!lineJNode.isMissingNode()) {
-            if (!lineJNode.isString()) {
-                return Optional.empty();
+        ObjectNode objNode = rawNode.asObject();
+        JsonNode lineJNode = null;
+        for (Map.Entry<String, JsonNode> pair : objNode.properties()) {
+            if (pair.getKey().equals("indentLev")) {
+                continue;
             }
+            if (!pair.getKey().equals("line")) {
+                return Optional.empty(); // LeafNode must not have any other properties
+            }
+            // pair = "line" entry
+            lineJNode = pair.getValue();
+            // continue // construct after ensuring no other properties
+        }
+        if (lineJNode == null) { // missing node
+            // LeafNode can have no explicit "line" property, assumed to be null
             return Optional.of(
                     new LeafNode(
                             rawNode, indentLev, parentTotalIndentLev,
-                            lineJNode.stringValue()
+                            null
                     )
             );
+        }
+        if (!lineJNode.isString()) { // "line" node has illegal value type
+            return Optional.empty();
         }
         return Optional.of(
                 new LeafNode(
                         rawNode, indentLev, parentTotalIndentLev,
-                        null
+                        lineJNode.stringValue()
                 )
         );
     }

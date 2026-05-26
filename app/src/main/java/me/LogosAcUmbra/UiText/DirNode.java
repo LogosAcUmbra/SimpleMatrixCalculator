@@ -62,7 +62,7 @@ public class DirNode extends ExistingNode {
                     dirIndentFormat.finishMsg()
             );
 
-            if (body.isLeaf()) { throw nodeShouldNotText("body", jBody); }
+            if (body.isLeaf()) { throw nodeShouldNotLeaf("body", jBody); }
 
             if (title.isNull()) {
                 throw nodeTextShouldNotNull("title", jTitle);
@@ -138,10 +138,10 @@ public class DirNode extends ExistingNode {
         );
     }
 
-    private static IllegalArgumentException nodeShouldNotText(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
+    private static IllegalArgumentException nodeShouldNotLeaf(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
             throws IllegalArgumentException {
         throw new IllegalArgumentException(String.format(
-                "node.%s (%s) should not be able to parsed into a text", propertyName, correspondingJNode
+                "node.%s (%s) should not be able to be parsed into a LeafNode", propertyName, correspondingJNode
         ));
     }
     private static IllegalArgumentException nodeTextShouldNotNull(String propertyName, JsonNode correspondingJNode)

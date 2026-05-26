@@ -136,18 +136,6 @@ public class PromptNode extends ExistingNode{
         return quitSpecifier;
     }
 
-//    private static IllegalArgumentException nodeNotText(String propertyName, JsonNode correspondingJNode)
-//            throws IllegalArgumentException {
-//        throw new IllegalArgumentException(String.format(
-//                "node.%s (%s) cannot be parsed into a text", propertyName, correspondingJNode
-//        ));
-//    }
-//    private static IllegalArgumentException nodeShouldNotText(String propertyName, JsonNode correspondingJNode)
-//            throws IllegalArgumentException {
-//        throw new IllegalArgumentException(String.format(
-//                "node.%s (%s) should not be able to parsed into a text", propertyName, correspondingJNode
-//        ));
-//    }
     private static IllegalArgumentException nodeTextShouldNotNull(String propertyName, JsonNode correspondingJNode)
             throws IllegalArgumentException {
         throw new IllegalArgumentException(String.format(

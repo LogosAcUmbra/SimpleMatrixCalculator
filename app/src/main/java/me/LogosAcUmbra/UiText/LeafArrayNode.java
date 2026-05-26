@@ -3,7 +3,10 @@ package me.LogosAcUmbra.UiText;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -138,7 +141,7 @@ public class LeafArrayNode extends ExistingNode {
     /**
      * access: package + child
      * <p>
-     *     null, String, {"indentLev": int #optional, "text": String #optional }
+     *     Array{@literal <String>}, {"indentLev": int #optional, "lines": Array{@literal <String>} }
      * </p>
      * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
      * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})
@@ -150,22 +153,41 @@ public class LeafArrayNode extends ExistingNode {
     protected static @NonNull Optional<LeafArrayNode> tryOfInternal(
             JsonNode rawNode, int indentLev, int parentTotalIndentLev
     ) {
-        JsonNode linesLevJNode = rawNode.path("lines");
-        if (linesLevJNode.isMissingNode()) {
-            return Optional.of(
-                    new LeafArrayNode(rawNode, indentLev, parentTotalIndentLev, new LeafNode[0])
-            );
-        }
-        if (!linesLevJNode.isArray()) {
+        if (rawNode.isNull()) {
             return Optional.empty();
         }
-        tools.jackson.databind.node.ArrayNode arrNode = linesLevJNode.asArray();
-        LeafNode[] lines = new LeafNode[linesLevJNode.size()];
-        for (int i = 0; i < linesLevJNode.size(); ++i) {
+        ArrayNode linesNode = null;
+        if (rawNode.isArray()) {
+            linesNode = rawNode.asArray();
+        } else {
+            if (!rawNode.isObject()) {
+                return Optional.empty();
+            }
+            ObjectNode objNode = rawNode.asObject();
+            for (Map.Entry<String, JsonNode> pair : objNode.properties()) {
+                if (pair.getKey().equals("indentLev")) {
+                    continue;
+                }
+                if (!pair.getKey().equals("lines")) {
+                    return Optional.empty(); // LeafArrayNode must not have any other properties
+                }
+                JsonNode linesJNode = pair.getValue();
+                if (!linesJNode.isArray()) { // node.lines has illegal type
+                    return Optional.empty();
+                }
+                linesNode = linesJNode.asArray();
+                // continue // construct after ensuring no other properties
+            }
+            if (linesNode == null) { // node has no explicit "lines" property
+                return Optional.empty();
+            }
+        }
+        LeafNode[] lines = new LeafNode[linesNode.size()];
+        for (int i = 0; i < linesNode.size(); ++i) {
             Optional<LeafNode> opLeafNode = LeafNode.tryOfExistJNode(
-                    arrNode.get(i), parentTotalIndentLev + indentLev, 0
+                    linesNode.get(i), parentTotalIndentLev + indentLev, 0
             );
-            if (opLeafNode.isEmpty()) {
+            if (opLeafNode.isEmpty()) { // LeafArrayNode can only contain valid LeafNode instances
                 return Optional.empty();
             }
             lines[i] = opLeafNode.get();

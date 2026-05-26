@@ -34,7 +34,7 @@
     "menu": {
       "indentLev": 0,
       "title": "Menu\n",
-      "txt": {
+      "body": {
         "choices": [
           "1. Create Matrix\n",
           "2. Calculations\n",

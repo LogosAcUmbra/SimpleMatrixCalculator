@@ -121,7 +121,7 @@ public class LeafNode extends ExistingNode {
     /**
      * access: package + child
      * <p>
-     *     null, String, {"indentLev": int #optional, "text": String #optional }
+     *     null, String, {"indentLev": int #optional, "line": String #optional }
      * </p>
      * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
      * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})

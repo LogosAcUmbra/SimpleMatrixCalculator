@@ -62,6 +62,7 @@ public class DirNode extends ExistingNode {
                     dirIndentFormat.finishMsg()
             );
 
+            if (body.isMissing()) { throw nodeShouldNotMissing("body", jBody); }
             if (body.isLeaf()) { throw nodeShouldNotLeaf("body", jBody); }
 
             if (title.isNull()) {
@@ -138,6 +139,12 @@ public class DirNode extends ExistingNode {
         );
     }
 
+    private static IllegalArgumentException nodeShouldNotMissing(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
+            throws IllegalArgumentException {
+        throw new IllegalArgumentException(String.format(
+                "node.%s (%s) should not be missing", propertyName, correspondingJNode
+        ));
+    }
     private static IllegalArgumentException nodeShouldNotLeaf(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
             throws IllegalArgumentException {
         throw new IllegalArgumentException(String.format(

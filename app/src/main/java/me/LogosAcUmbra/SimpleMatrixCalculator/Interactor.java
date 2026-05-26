@@ -29,7 +29,9 @@ public class Interactor {
     }
 
     private void menu() {
-
+        DirNode menuDir = textManager.root().dirs().menu();
+        System.out.print(menuDir.title().txt());
+        System.out.print(menuDir.body().path("choices").txt());
     }
 
     private void createMatrix() {
@@ -53,7 +55,7 @@ public class Interactor {
         createMatrixDir.interruptMsg().txt();
 
         if (rows == -1) {
-            System.out.println(prompts.rows().useIndentOf(createMatrixDir).quitMsg());
+            System.out.println(prompts.rows().useIndentOf(createMatrixDir).quitMsg().txt());
             return;
         }
 
@@ -67,7 +69,7 @@ public class Interactor {
         );
 
         if (cols == -1) {
-            System.out.println(prompts.cols().quitMsg());
+            System.out.println(prompts.cols().useIndentOf(createMatrixDir).quitMsg().txt());
             currentIndentLev = 0;
             return;
         }

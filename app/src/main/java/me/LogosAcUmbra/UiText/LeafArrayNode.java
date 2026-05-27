@@ -121,8 +121,24 @@ public class LeafArrayNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull LeafArrayNode useIndent(int newExtraIndentLev) {
-        return null;
+    public @NonNull LeafArrayNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (LeafArrayNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+
+        LeafNode [] lines = new LeafNode[this.lines.length];
+        for (int i = 0; i < lines.length; ++i) {
+            lines[i] = this.lines[i].useIndent(newParentTotalIndentLev);
+        }
+        LeafArrayNode result = new LeafArrayNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                lines
+        );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 
 

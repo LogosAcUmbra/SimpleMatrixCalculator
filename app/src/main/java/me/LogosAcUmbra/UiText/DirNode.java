@@ -129,14 +129,23 @@ public class DirNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull DirNode useIndent(int newExtraIndentLev) {
-        return new DirNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                this.title.useIndent(newExtraIndentLev),
-                this.body.useIndent(newExtraIndentLev),
-                this.interruptMsg.useIndent(newExtraIndentLev),
-                this.finishMsg.useIndent(newExtraIndentLev)
+    public @NonNull DirNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (DirNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+
+        DirNode result = new DirNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                this.title.useIndent(newParentTotalIndentLev),
+                this.body.useIndent(newParentTotalIndentLev),
+                this.interruptMsg.useIndent(newParentTotalIndentLev),
+                this.finishMsg.useIndent(newParentTotalIndentLev)
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 
     private static IllegalArgumentException nodeShouldNotMissing(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)

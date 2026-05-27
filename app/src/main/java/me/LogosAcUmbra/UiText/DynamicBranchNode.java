@@ -134,15 +134,23 @@ public class DynamicBranchNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull DynamicBranchNode useIndent(int newExtraIndentLev) {
+    public @NonNull DynamicBranchNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (DynamicBranchNode) useIndentCache.get(newParentTotalIndentLev);
+        }
         // lazy initialization
         HashMap<String, UiTextNode> pathKeys = (this.pathKeys == null) ? null : new HashMap<>(this.pathKeys.size());
         ArrayList<UiTextNode> pathIndices = (this.pathIndices == null) ? null : new ArrayList<>(this.pathIndices.size());
 
-        return new DynamicBranchNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
+        DynamicBranchNode result = new DynamicBranchNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
                 pathKeys, pathIndices
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 
     public @NonNull Optional<LeafNode> tryToLeafNode() {

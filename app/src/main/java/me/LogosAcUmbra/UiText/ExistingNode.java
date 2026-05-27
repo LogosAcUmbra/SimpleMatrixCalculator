@@ -1,5 +1,7 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
@@ -14,6 +16,8 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
     protected final int indentLev; // relative indent level: no matter how many indent the upper level has, u want `indentLev` more indent
     protected final int parentTotalIndentLev; // the number of indent of the upper level
 
+    protected final Int2ObjectMap<ExistingNode> useIndentCache;
+
     protected ExistingNode(
             @NonNull JsonNode rawNode,
             int indentLev,
@@ -22,6 +26,19 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
         this.rawNode = rawNode;
         this.indentLev = indentLev;
         this.parentTotalIndentLev = parentTotalIndentLev;
+        this.useIndentCache = new Int2ObjectOpenHashMap<>();
+    }
+
+    protected ExistingNode(
+            @NonNull JsonNode rawNode,
+            int indentLev,
+            int parentTotalIndentLev,
+            @NonNull Int2ObjectMap<ExistingNode> useIndentCache
+    ) {
+        this.rawNode = rawNode;
+        this.indentLev = indentLev;
+        this.parentTotalIndentLev = parentTotalIndentLev;
+        this.useIndentCache = useIndentCache;
     }
 
     public static @NonNull ExistingNode of(JsonNode rawNode) {

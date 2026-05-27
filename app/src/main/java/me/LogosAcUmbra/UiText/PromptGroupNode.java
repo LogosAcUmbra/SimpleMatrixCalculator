@@ -72,11 +72,19 @@ public class PromptGroupNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull PromptGroupNode useIndent(int newExtraIndentLev) {
-        return new PromptGroupNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                rows.useIndent(newExtraIndentLev), cols.useIndent(newExtraIndentLev), elementAt.useIndent(newExtraIndentLev)
+    public @NonNull PromptGroupNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (PromptGroupNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+        PromptGroupNode result =  new PromptGroupNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                rows.useIndent(newParentTotalIndentLev), cols.useIndent(newParentTotalIndentLev), elementAt.useIndent(newParentTotalIndentLev)
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 
 //    @Override

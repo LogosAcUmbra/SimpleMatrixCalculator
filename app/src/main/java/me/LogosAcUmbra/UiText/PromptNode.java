@@ -110,14 +110,22 @@ public class PromptNode extends ExistingNode{
     }
 
     @Override
-    public @NonNull PromptNode useIndent(int newExtraIndentLev) {
-        return new PromptNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                ask.useIndent(newExtraIndentLev),
-                err.useIndent(newExtraIndentLev),
-                quitMsg.useIndent(newExtraIndentLev),
-                quitSpecifier.useIndent(newExtraIndentLev)
+    public @NonNull PromptNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (PromptNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+        PromptNode result = new PromptNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                ask.useIndent(newParentTotalIndentLev),
+                err.useIndent(newParentTotalIndentLev),
+                quitMsg.useIndent(newParentTotalIndentLev),
+                quitSpecifier.useIndent(newParentTotalIndentLev)
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 
     public LeafNode ask() {

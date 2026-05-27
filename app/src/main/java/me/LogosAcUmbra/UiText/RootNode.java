@@ -77,10 +77,10 @@ public class RootNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull RootNode useIndent(int newExtraIndentLev) {
+    public @NonNull RootNode useIndent(int newParentTotalIndentLev) {
         return new RootNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                this.prompts.useIndent(newExtraIndentLev), this.dirs.useIndent(newExtraIndentLev)
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                this.prompts.useIndent(newParentTotalIndentLev), this.dirs.useIndent(newParentTotalIndentLev)
         );
     }
 }

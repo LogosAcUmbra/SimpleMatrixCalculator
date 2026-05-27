@@ -251,10 +251,18 @@ public class LeafNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull LeafNode useIndent(int newExtraIndentLev) {
-        return new LeafNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
+    public @NonNull LeafNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (LeafNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+        LeafNode result = new LeafNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
                 this.text
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 }

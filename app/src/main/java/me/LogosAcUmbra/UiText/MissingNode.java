@@ -73,7 +73,7 @@ public non-sealed class MissingNode extends UiTextNode {
     }
 
     @Override
-    public @NonNull UiTextNode useIndent(int newExtraIndentLev) {
+    public @NonNull UiTextNode useIndent(int newParentTotalIndentLev) {
         throw nodeIsMissingException();
     }
 

@@ -70,10 +70,18 @@ public class DirGroupNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull DirGroupNode useIndent(int newExtraIndentLev) {
-        return new DirGroupNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                this.menu.useIndent(newExtraIndentLev), this.createMatrix.useIndent(newExtraIndentLev)
+    public @NonNull DirGroupNode useIndent(int newParentTotalIndentLev) {
+        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
+            return this;
+        }
+        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
+            return (DirGroupNode) useIndentCache.get(newParentTotalIndentLev);
+        }
+        DirGroupNode result = new DirGroupNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                this.menu.useIndent(newParentTotalIndentLev), this.createMatrix.useIndent(newParentTotalIndentLev)
         );
+        useIndentCache.put(newParentTotalIndentLev, result);
+        return result;
     }
 }

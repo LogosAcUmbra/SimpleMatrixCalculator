@@ -54,7 +54,7 @@ public abstract sealed class UiTextNode permits ExistingNode, MissingNode {
     }
     public abstract @NonNull UiTextNode useIndentOf(ExistingNode eNode);
 
-    public abstract @NonNull UiTextNode useIndent(int newExtraIndentLev);
+    public abstract @NonNull UiTextNode useIndent(int newParentTotalIndentLev);
 
     public Optional<ExistingNode> tryToExistingNode() throws IllegalStateException {
         if (isMissing()) {

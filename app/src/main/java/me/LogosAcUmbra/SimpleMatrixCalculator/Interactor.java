@@ -10,7 +10,6 @@ import java.util.Scanner;
 
 public class Interactor {
     private final int indentSize = 2;
-    private int currentIndentLev = 0;
     private final Scanner scanner = new Scanner(System.in);
     private final Section section = new Section();
     private final UiTextManager textManager;
@@ -24,14 +23,17 @@ public class Interactor {
 
     public void start() {
         createMatrix();
-        menu();
+        while (true) {
+            DirNode menuDir = textManager.root().dirs().menu();
+            System.out.print(menuDir.title().txt());
+            System.out.print(menuDir.body().path("choices").txt());
+            if (scanner.next().equals("1")) {
+                createMatrix();
+            } else {
+                break;
+            }
+        }
         scanner.next(); // pause to let me see result of program
-    }
-
-    private void menu() {
-        DirNode menuDir = textManager.root().dirs().menu();
-        System.out.print(menuDir.title().txt());
-        System.out.print(menuDir.body().path("choices").txt());
     }
 
     private void createMatrix() {
@@ -41,16 +43,14 @@ public class Interactor {
         System.out.print(createMatrixDir.title().txt());
 
         // size header
-        UiTextNode sizeHeaderNode = createMatrixDir.body().path("sizeHeader");
-        PromptGroupNode sizeIndentedPrompts = prompts.useIndentOf(sizeHeaderNode);
-        System.out.print(sizeHeaderNode.txt());
+        UiTextNode sizeNode = createMatrixDir.body().path("size");
+        System.out.print(sizeNode.path("header").txt());
         // rows
-        PromptNode rowsNode = sizeIndentedPrompts.rows();
         int rows = askUntilPositiveInt(
-                rowsNode.ask().txt(),
+                prompts.useIndentOf(sizeNode).rows().ask().txt(),
                 matSizeUpperBound,
                 prompts.rows().quitSpecifier().txt(), // no need indent
-                rowsNode.quitMsg().txt()
+                prompts.useIndentOf(sizeNode).rows().err().txt()
         );
         createMatrixDir.interruptMsg().txt();
 
@@ -60,25 +60,21 @@ public class Interactor {
         }
 
         // cols
-        PromptNode colsNode = sizeIndentedPrompts.cols();
         int cols = askUntilPositiveInt(
-                colsNode.ask().txt(),
+                prompts.useIndentOf(sizeNode).cols().ask().txt(),
                 matSizeUpperBound,
                 prompts.cols().quitSpecifier().txt(), // no need indent
-                colsNode.err().txt(matSizeUpperBound)
+                prompts.useIndentOf(sizeNode).cols().err().txt(matSizeUpperBound)
         );
 
         if (cols == -1) {
-            System.out.println(prompts.cols().useIndentOf(createMatrixDir).quitMsg().txt());
-            currentIndentLev = 0;
+            System.out.println(prompts.useIndentOf(createMatrixDir).cols().quitMsg().txt());
             return;
         }
 
-        // elements header
-        UiTextNode elementsHeaderNode = createMatrixDir.body().path("elementsHeader");
-        PromptGroupNode elementsIndentedPrompts = prompts.useIndentOf(elementsHeaderNode);
+        // elements
+        UiTextNode elementsNode = createMatrixDir.body().path("elements");
         // elementAt
-        PromptNode elementAtNode = elementsIndentedPrompts.elementAt();
         String name = section.getUnusedDefaultName();
         DMatrixRMaj mat = section.addMatrix(name, rows, cols);
 
@@ -88,18 +84,18 @@ public class Interactor {
                 int cOut = (zeroIndexing) ? (c) : (c + 1);
 
                 StringBuilder sb = new StringBuilder();
-                sb.append(elementsHeaderNode.txt());
-                sbAppendMat(sb, mat, 2);
+                sb.append(elementsNode.path("header").txt());
+                sbAppendMat(sb, mat, elementsNode.path("mat").getIndentLev());
 
                 System.out.println(sb);
                 double elem = askUntilFiniteDouble(
-                        elementAtNode.ask().txt(rOut, cOut),
+                        prompts.useIndentOf(elementsNode).elementAt().ask().txt(rOut, cOut),
                         prompts.elementAt().quitSpecifier().txt(), // no need indent
-                        elementAtNode.err().txt()
+                        prompts.useIndentOf(elementsNode).elementAt().err().txt()
                 );
 
                 if (Double.isNaN(elem)) {
-                    System.out.println(createMatrixDir.interruptMsg().txt());
+                    System.out.println(prompts.useIndentOf(elementsNode).elementAt().quitMsg().txt());
                     return;
                 }
                 mat.set(r, c, elem);
@@ -109,7 +105,7 @@ public class Interactor {
         // Final Success Message
         System.out.print(createMatrixDir.finishMsg().txt(section.getNumMatrices()));
         StringBuilder finalSb = new StringBuilder();
-        sbAppendMat(finalSb, mat, 1);
+        sbAppendMat(finalSb, mat, createMatrixDir.body().path("mat").getIndentLev());
         System.out.println(finalSb.toString());
     }
     private void sbAppendMat(StringBuilder sb, DMatrixRMaj mat, int indentLev) {

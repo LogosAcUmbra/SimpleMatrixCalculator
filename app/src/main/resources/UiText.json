@@ -26,7 +26,7 @@
     "elementAt": {
       "ask": "element at pos ( %d , %d ): ",
       "err": "elements have to be in decimal point values. Please input again.\n",
-      "quitMsg": "Matrix Saved. Quitting action...\n",
+      "quitMsg": "Matrix Saved (name: %s). Quitting action...\n",
       "quitSpecifier": "q"
     }
   },
@@ -49,17 +49,25 @@
       "indentLev": 1,
       "title": "Create Matrix\n",
       "body": {
-        "sizeHeader": {
-          "indentLev": 0,
-          "line": "Please input the size of your matrix:\n"
+        "size": {
+          "header": {
+            "line": "Please input the size of your matrix:\n"
+          }
         },
-        "elementsHeader": {
-          "indentLev": 0,
-          "line": "Please input the elements:\n"
+        "elements": {
+          "header": {
+            "line": "Please input the elements:\n"
+          },
+          "mat": {
+            "indentLev": 1
+          }
+        },
+        "mat": {
+          "indentLev": 1
         }
       },
-      "interruptMsg": "Matrix Saved. Quitting action...\n\n",
-      "finishMsg": "Matrix Created.\n\n"
+      "interruptMsg": "wait, this is useless????????????????",
+      "finishMsg": "Matrix Created and Saved...\n.\n."
     }
   }
 }

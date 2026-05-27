@@ -8,7 +8,7 @@ public class DirNode extends ExistingNode {
 
     private final @NonNull LeafNode title;
     private final @NonNull UiTextNode body;
-    private final @NonNull LeafNode interruptMsg;
+    private final @NonNull UiTextNode interruptMsg;
     private final @NonNull LeafNode finishMsg;
 
 
@@ -16,7 +16,7 @@ public class DirNode extends ExistingNode {
             @NonNull JsonNode rawNode, int dirIndentLev, int parentTotalIndentLev,
             @NonNull LeafNode title,
             @NonNull UiTextNode body,
-            @NonNull LeafNode interruptMsg,
+            @NonNull UiTextNode interruptMsg,
             @NonNull LeafNode finishMsg
     ) {
         super(rawNode, dirIndentLev, parentTotalIndentLev);
@@ -32,7 +32,7 @@ public class DirNode extends ExistingNode {
         int dirIndentLev = UiTextNode.getIndentLevOf(jNode);
         LeafNode title;
         UiTextNode body;
-        LeafNode interruptMsg;
+        UiTextNode interruptMsg;
         LeafNode finishMsg;
         try {
 
@@ -51,7 +51,7 @@ public class DirNode extends ExistingNode {
                     parentTotalIndentLev + dirIndentLev,
                     dirIndentFormat.body()
             );
-            interruptMsg = LeafNode.of(
+            interruptMsg = UiTextNode.of(
                     jInterruptMsg,
                     parentTotalIndentLev + dirIndentLev,
                     dirIndentFormat.interruptMsg()
@@ -63,7 +63,7 @@ public class DirNode extends ExistingNode {
             );
 
             if (body.isMissing()) { throw nodeShouldNotMissing("body", jBody); }
-            if (body.isLeaf()) { throw nodeShouldNotLeaf("body", jBody); }
+            if (interruptMsg.isMissing()) { throw nodeShouldNotMissing("interruptMsg", jInterruptMsg); }
 
             if (title.isNull()) {
                 throw nodeTextShouldNotNull("title", jTitle);
@@ -86,7 +86,7 @@ public class DirNode extends ExistingNode {
         return body;
     }
 
-    public @NonNull LeafNode interruptMsg() {
+    public @NonNull UiTextNode interruptMsg() {
         return interruptMsg;
     }
 
@@ -152,12 +152,6 @@ public class DirNode extends ExistingNode {
             throws IllegalArgumentException {
         throw new IllegalArgumentException(String.format(
                 "node.%s (%s) should not be missing", propertyName, correspondingJNode
-        ));
-    }
-    private static IllegalArgumentException nodeShouldNotLeaf(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
-            throws IllegalArgumentException {
-        throw new IllegalArgumentException(String.format(
-                "node.%s (%s) should not be able to be parsed into a LeafNode", propertyName, correspondingJNode
         ));
     }
     private static IllegalArgumentException nodeTextShouldNotNull(String propertyName, JsonNode correspondingJNode)

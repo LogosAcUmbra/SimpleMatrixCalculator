@@ -109,6 +109,24 @@ public class PromptNode extends ExistingNode{
         return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
     }
 
+    // @Override
+    public @NonNull PromptNode addIndentOf(UiTextNode node) {
+        if (node.isMissing()) {
+            throw new IllegalArgumentException("UiTextNode node is a missing node");
+        }
+        return useIndentOf( (ExistingNode) node );
+    }
+
+    // @Override
+    public @NonNull PromptNode addIndentOf(ExistingNode eNode) {
+        return addIndent(eNode.parentTotalIndentLev + eNode.indentLev);
+    }
+
+    // @Override
+    public @NonNull PromptNode addIndent(int extraParentTotalIndentLev) {
+        return useIndent(extraParentTotalIndentLev + this.parentTotalIndentLev);
+    }
+
     @Override
     public @NonNull PromptNode useIndent(int newParentTotalIndentLev) {
         if (newParentTotalIndentLev == this.parentTotalIndentLev) {

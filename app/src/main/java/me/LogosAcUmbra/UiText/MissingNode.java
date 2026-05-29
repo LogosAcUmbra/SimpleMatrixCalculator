@@ -63,6 +63,11 @@ public non-sealed class MissingNode extends UiTextNode {
     }
 
     @Override
+    public @NonNull LeafArrayNode asArr() throws IllegalStateException {
+        throw nodeIsMissingException();
+    }
+
+    @Override
     public @NonNull UiTextNode useIndentOf(UiTextNode node) throws IllegalStateException {
         throw nodeIsMissingException();
     }

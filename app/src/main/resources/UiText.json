@@ -11,6 +11,12 @@
     "finishMsg": 1
   },
   "prompts": {
+    "choices": {
+      "ask": "choice: ",
+      "err": "invalid choice",
+      "quitMsg": null,
+      "quitSpecifier": null
+    },
     "rows": {
       "ask": "num of rows ('q' to quit action): ",
       "err": "num of rows must be a positive integer (<%d). Please input again.\n",
@@ -37,7 +43,8 @@
       "body": {
         "choices": [
           "1. Create Matrix\n",
-          "2. Calculations\n",
+          "2. View Matrices\n",
+          "3. Calculations\n",
           "S. Switch Session\n",
           "Q. quit\n"
         ]

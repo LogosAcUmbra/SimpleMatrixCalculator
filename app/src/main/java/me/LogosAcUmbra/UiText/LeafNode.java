@@ -1,9 +1,7 @@
 package me.LogosAcUmbra.UiText;
 
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.node.NullNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.Map;
@@ -12,11 +10,11 @@ import java.util.Optional;
 
 public class LeafNode extends ExistingNode {
 
-    protected @Nullable String text;
+    protected final @NonNull String text;
 
     protected LeafNode(
             @NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev,
-            @Nullable String text
+            @NonNull String text
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
         this.text = text;
@@ -74,7 +72,7 @@ public class LeafNode extends ExistingNode {
     {
         try {
             if (rawNode.isNull()) {
-                return LeafNode.ofNull(rawNode, indentLev, parentTotalIndentLev);
+                return LeafNode.ofEmpty(rawNode, indentLev, parentTotalIndentLev);
             }
             if (rawNode.isString()) {
                 return LeafNode.ofString(rawNode, indentLev, parentTotalIndentLev);
@@ -97,9 +95,8 @@ public class LeafNode extends ExistingNode {
             }
             if (lineJNode == null) { // missing node
                 // LeafNode can have no explicit "line" property, assumed to be null
-                return new LeafNode(
-                        rawNode, indentLev, parentTotalIndentLev,
-                        null
+                return ofEmpty(
+                        rawNode, indentLev, parentTotalIndentLev
                 );
             }
             if (!lineJNode.isString()) { // "line" node has illegal value type
@@ -132,7 +129,7 @@ public class LeafNode extends ExistingNode {
      */
     static @NonNull Optional<LeafNode> tryOfInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         if (rawNode.isNull()) {
-            return Optional.of( LeafNode.ofNull(rawNode, indentLev, parentTotalIndentLev) );
+            return Optional.of( LeafNode.ofEmpty(rawNode, indentLev, parentTotalIndentLev) );
         }
         if (rawNode.isString()) {
             return Optional.of( LeafNode.ofString(rawNode, indentLev, parentTotalIndentLev) );
@@ -155,12 +152,9 @@ public class LeafNode extends ExistingNode {
         }
         if (lineJNode == null) { // missing node
             // LeafNode can have no explicit "line" property, assumed to be null
-            return Optional.of(
-                    new LeafNode(
-                            rawNode, indentLev, parentTotalIndentLev,
-                            null
-                    )
-            );
+            return Optional.of( ofEmpty(
+                    rawNode, indentLev, parentTotalIndentLev
+            ));
         }
         if (!lineJNode.isString()) { // "line" node has illegal value type
             return Optional.empty();
@@ -180,10 +174,10 @@ public class LeafNode extends ExistingNode {
      * LeafNodeType.NULL, null
      * )
      * */
-    private static @NonNull LeafNode ofNull(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
+    private static @NonNull LeafNode ofEmpty(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         return new LeafNode(
                 rawNode, indentLev, parentTotalIndentLev,
-                null
+                ""
         );
     }
     /**
@@ -202,18 +196,12 @@ public class LeafNode extends ExistingNode {
     }
 
     @Override
-    public @Nullable String txt() {
-        if (text == null) {
-            return null;
-        }
+    public @NonNull String txt() {
         return " ".repeat((indentLev + parentTotalIndentLev) * UiTextManager.getInstance().getSetting().indentSize) + text;
     }
 
     @Override
     public @NonNull String txt(Object... args) {
-        if (text == null) {
-            throw new IllegalArgumentException(String.format("node (%s) is not string", rawNode));
-        }
         return " ".repeat((indentLev + parentTotalIndentLev) * UiTextManager.getInstance().getSetting().indentSize) + String.format(text, args);
     }
 
@@ -233,11 +221,11 @@ public class LeafNode extends ExistingNode {
     }
     @Override
     public boolean isNull() {
-        return text == null;
+        return rawNode.isNull();
     }
     @Override
     public boolean isString() {
-        return text != null;
+        return rawNode.isString();
     }
 
     @Override

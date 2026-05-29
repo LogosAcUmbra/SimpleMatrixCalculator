@@ -114,8 +114,16 @@ public abstract non-sealed class ExistingNode extends UiTextNode {
 
     @Override
     public int getIndentLev() throws IllegalStateException {
-        return parentTotalIndentLev;
+        return parentTotalIndentLev + indentLev;
     }
+
+    @Override
+    public @NonNull LeafArrayNode asArr() throws IllegalStateException {
+        throw new IllegalStateException(String.format(
+                "node (%s) is not a LeafArrayNode", rawNode
+        ));
+    }
+
 
     public @NonNull JsonNodeType getJsonNodeType() {
         return rawNode.getNodeType();

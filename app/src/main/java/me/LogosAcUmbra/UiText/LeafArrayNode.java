@@ -11,15 +11,15 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class LeafArrayNode extends ExistingNode {
-    @NonNull LeafNode @NonNull [] lines;
+    @NonNull LeafNode @NonNull [] leafs;
     @Nullable String txtCache;
 
     protected LeafArrayNode(
             JsonNode rawNode, int indentLev, int parentTotalIndentLev,
-            @NonNull LeafNode @NonNull [] lines
+            @NonNull LeafNode @NonNull [] leafs
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
-        this.lines = lines;
+        this.leafs = leafs;
     }
 
     public static @NonNull LeafArrayNode of(
@@ -77,23 +77,23 @@ public class LeafArrayNode extends ExistingNode {
 
     @Override
     public @NonNull UiTextNode path(int index) {
-        if (index < 0 || index >= lines.length) {
+        if (index < 0 || index >= leafs.length) {
             return MissingNode.getInstance();
         }
-        return lines[index];
+        return leafs[index];
     }
 
+    /**
+     * @return String combining {@link LeafNode#txt} of leaf forall leaf in leafs
+     */
     @Override
-    public @NonNull String txt() throws IllegalStateException {
+    public @NonNull String txt() {
         if (txtCache != null) {
             return txtCache;
         }
         StringBuilder sb = new StringBuilder();
-        for (LeafNode line : lines) {
-            String txt = line.txt();
-            if (txt == null) {
-                continue; // ignore null text
-            }
+        for (LeafNode leaf : leafs) {
+            String txt = leaf.txt();
             sb.append(txt);
         }
         txtCache = sb.toString();
@@ -101,13 +101,31 @@ public class LeafArrayNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull String txt(Object... args) throws IllegalStateException {
+    public @NonNull String txt(Object... args) {
         return String.format(txt(), args);
+    }
+
+    public @NonNull LeafNode[] getLeafs() {
+        return leafs;
+    }
+
+    public @NonNull String[] toStrArr() throws IllegalStateException {
+        int size = leafs.length;
+        String[] result = new String[size];
+        for (int i = 0; i < size; ++i) {
+            result[i] = leafs[i].txt();
+        }
+        return result;
     }
 
     @Override
     public @NonNull ExistingNodeType getExistingNodeType() {
         return ExistingNodeType.ARRAY;
+    }
+
+    @Override
+    public @NonNull LeafArrayNode asArr() {
+        return this;
     }
 
     @Override
@@ -129,13 +147,13 @@ public class LeafArrayNode extends ExistingNode {
             return (LeafArrayNode) useIndentCache.get(newParentTotalIndentLev);
         }
 
-        LeafNode [] lines = new LeafNode[this.lines.length];
-        for (int i = 0; i < lines.length; ++i) {
-            lines[i] = this.lines[i].useIndent(newParentTotalIndentLev);
+        LeafNode [] leafs = new LeafNode[this.leafs.length];
+        for (int i = 0; i < leafs.length; ++i) {
+            leafs[i] = this.leafs[i].useIndent(newParentTotalIndentLev);
         }
         LeafArrayNode result = new LeafArrayNode(
                 this.rawNode, this.indentLev, newParentTotalIndentLev,
-                lines
+                leafs
         );
         useIndentCache.put(newParentTotalIndentLev, result);
         return result;
@@ -143,8 +161,8 @@ public class LeafArrayNode extends ExistingNode {
 
 
     public @NonNull LeafNode get(int index) {
-        Objects.checkIndex(index, lines.length);
-        return lines[index];
+        Objects.checkIndex(index, leafs.length);
+        return leafs[index];
     }
 
     protected static @NonNull Optional<LeafArrayNode> tryOfExistJNode(
@@ -157,7 +175,7 @@ public class LeafArrayNode extends ExistingNode {
     /**
      * access: package + child
      * <p>
-     *     Array{@literal <String>}, {"indentLev": int #optional, "lines": Array{@literal <String>} }
+     *     Array{@literal <String>}, {"indentLev": int #optional, "leafs": Array{@literal <String>} }
      * </p>
      * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
      * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})
@@ -172,9 +190,9 @@ public class LeafArrayNode extends ExistingNode {
         if (rawNode.isNull()) {
             return Optional.empty();
         }
-        ArrayNode linesNode = null;
+        ArrayNode leafsNode = null;
         if (rawNode.isArray()) {
-            linesNode = rawNode.asArray();
+            leafsNode = rawNode.asArray();
         } else {
             if (!rawNode.isObject()) {
                 return Optional.empty();
@@ -184,32 +202,32 @@ public class LeafArrayNode extends ExistingNode {
                 if (pair.getKey().equals("indentLev")) {
                     continue;
                 }
-                if (!pair.getKey().equals("lines")) {
+                if (!pair.getKey().equals("leafs")) {
                     return Optional.empty(); // LeafArrayNode must not have any other properties
                 }
-                JsonNode linesJNode = pair.getValue();
-                if (!linesJNode.isArray()) { // node.lines has illegal type
+                JsonNode leafsJNode = pair.getValue();
+                if (!leafsJNode.isArray()) { // node.leafs has illegal type
                     return Optional.empty();
                 }
-                linesNode = linesJNode.asArray();
+                leafsNode = leafsJNode.asArray();
                 // continue // construct after ensuring no other properties
             }
-            if (linesNode == null) { // node has no explicit "lines" property
+            if (leafsNode == null) { // node has no explicit "leafs" property
                 return Optional.empty();
             }
         }
-        LeafNode[] lines = new LeafNode[linesNode.size()];
-        for (int i = 0; i < linesNode.size(); ++i) {
+        LeafNode[] leafs = new LeafNode[leafsNode.size()];
+        for (int i = 0; i < leafsNode.size(); ++i) {
             Optional<LeafNode> opLeafNode = LeafNode.tryOfExistJNode(
-                    linesNode.get(i), parentTotalIndentLev + indentLev, 0
+                    leafsNode.get(i), parentTotalIndentLev + indentLev, 0
             );
             if (opLeafNode.isEmpty()) { // LeafArrayNode can only contain valid LeafNode instances
                 return Optional.empty();
             }
-            lines[i] = opLeafNode.get();
+            leafs[i] = opLeafNode.get();
         }
         return Optional.of(
-                new LeafArrayNode(rawNode, indentLev, parentTotalIndentLev, lines)
+                new LeafArrayNode(rawNode, indentLev, parentTotalIndentLev, leafs)
         );
     }
 }

@@ -5,14 +5,16 @@ import tools.jackson.databind.JsonNode;
 
 public class PromptGroupNode extends ExistingNode {
 
+    private final PromptNode choices;
     private final PromptNode rows;
     private final PromptNode cols;
     private final PromptNode elementAt;
 
     protected PromptGroupNode(
             @NonNull JsonNode jNode, int indentLev, int parentTotalIndentLev,
-            @NonNull PromptNode rows, @NonNull PromptNode cols, @NonNull PromptNode elementAt) {
+            @NonNull PromptNode choices, @NonNull PromptNode rows, @NonNull PromptNode cols, @NonNull PromptNode elementAt) {
         super(jNode, indentLev, parentTotalIndentLev);
+        this.choices = choices;
         this.rows = rows;
         this.cols = cols;
         this.elementAt = elementAt;
@@ -22,15 +24,17 @@ public class PromptGroupNode extends ExistingNode {
             throws IllegalArgumentException
     {
 
+        PromptNode choices = PromptNode.of(promptIndentFormat, jNode.path("choices"));
         PromptNode rows = PromptNode.of(promptIndentFormat, jNode.path("rows"));
         PromptNode cols = PromptNode.of(promptIndentFormat, jNode.path("cols"));
         PromptNode elementAt = PromptNode.of(promptIndentFormat, jNode.path("elementAt"));
-        return new PromptGroupNode(jNode, 0, 0, rows, cols, elementAt);
+        return new PromptGroupNode(jNode, 0, 0, choices, rows, cols, elementAt);
     }
 
     @Override
     public @NonNull UiTextNode path(@NonNull String propertyName) {
         return switch (propertyName) {
+            case ("choices") -> choices;
             case ("rows") -> rows;
             case ("cols") -> cols;
             case ("elementAt") -> elementAt;
@@ -43,6 +47,7 @@ public class PromptGroupNode extends ExistingNode {
         return MissingNode.getInstance();
     }
 
+    public PromptNode choices() {return choices;}
     public PromptNode rows() {
         return rows;
     }
@@ -71,6 +76,24 @@ public class PromptGroupNode extends ExistingNode {
         return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
     }
 
+    // @Override
+    public @NonNull PromptGroupNode addIndentOf(UiTextNode node) {
+        if (node.isMissing()) {
+            throw new IllegalArgumentException("UiTextNode node is a missing node");
+        }
+        return useIndentOf( (ExistingNode) node );
+    }
+
+    // @Override
+    public @NonNull PromptGroupNode addIndentOf(ExistingNode eNode) {
+        return addIndent(eNode.parentTotalIndentLev + eNode.indentLev);
+    }
+
+    // @Override
+    public @NonNull PromptGroupNode addIndent(int extraParentTotalIndentLev) {
+        return useIndent(extraParentTotalIndentLev + this.parentTotalIndentLev);
+    }
+
     @Override
     public @NonNull PromptGroupNode useIndent(int newParentTotalIndentLev) {
         if (newParentTotalIndentLev == this.parentTotalIndentLev) {
@@ -81,21 +104,12 @@ public class PromptGroupNode extends ExistingNode {
         }
         PromptGroupNode result =  new PromptGroupNode(
                 this.rawNode, this.indentLev, newParentTotalIndentLev,
-                rows.useIndent(newParentTotalIndentLev), cols.useIndent(newParentTotalIndentLev), elementAt.useIndent(newParentTotalIndentLev)
+                choices.useIndent(newParentTotalIndentLev),
+                rows.useIndent(newParentTotalIndentLev),
+                cols.useIndent(newParentTotalIndentLev),
+                elementAt.useIndent(newParentTotalIndentLev)
         );
         useIndentCache.put(newParentTotalIndentLev, result);
         return result;
     }
-
-//    @Override
-//    public @NonNull PromptGroupNode useIndentOf(UiTextNode node) throws IllegalArgumentException {
-//        if (node.isMissing()) {
-//            throw new IllegalArgumentException("the given node is a missing node");
-//        }
-//        ExistingNode eNode = (ExistingNode) node;
-//        return of(
-//                this.setting, this.rawNode, this.indentLev, eNode.parentTotalIndentLev,
-//                this.rows, this.cols, this.elementAt
-//        );
-//    }
 }

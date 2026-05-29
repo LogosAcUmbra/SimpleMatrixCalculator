@@ -45,6 +45,8 @@ public abstract sealed class UiTextNode permits ExistingNode, MissingNode {
     public abstract @NonNull JsonNodeType getJsonNodeType();
     public abstract @NonNull ExistingNodeType getExistingNodeType();
 
+    public abstract @NonNull LeafArrayNode asArr() throws IllegalStateException;
+
     public @NonNull UiTextNode useIndentOf(UiTextNode node) {
         if (node.isMissing()) {
             throw new IllegalArgumentException("the given node is a missing node");

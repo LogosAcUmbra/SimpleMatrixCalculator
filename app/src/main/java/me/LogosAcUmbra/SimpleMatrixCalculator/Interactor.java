@@ -3,9 +3,13 @@ package me.LogosAcUmbra.SimpleMatrixCalculator;
 import me.LogosAcUmbra.UiText.*;
 import me.LogosAcUmbra.Utils.Utils;
 import org.ejml.data.DMatrixRMaj;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Scanner;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 
 public class Interactor {
@@ -22,18 +26,35 @@ public class Interactor {
 
 
     public void start() {
+        startupFunc();
+        menu();
+    }
+
+    private void startupFunc() {
         createMatrix();
+    }
+
+    private void menu() {
         while (true) {
+            PromptNode choicePrompt = textManager.root().prompts().choices();
             DirNode menuDir = textManager.root().dirs().menu();
+            String[] choiceKeys = {"1", "2", "3", "S", "Q"};
             System.out.print(menuDir.title().txt());
             System.out.print(menuDir.body().path("choices").txt());
-            if (scanner.next().equals("1")) {
-                createMatrix();
-            } else {
-                break;
+
+            String choice = askUntilMatch(
+                    choiceKeys,
+                    choicePrompt.addIndentOf(menuDir).ask().txt(),
+                    choicePrompt.addIndentOf(menuDir).err().txt(),
+                    this::choicesLaxEq
+            );
+            switch (choice) {
+                case ("1"): createMatrix(); break;
+                case ("Q"): return;
+                default: System.out.println("function not finished"); continue;
             }
+            continue;
         }
-        scanner.next(); // pause to let me see result of program
     }
 
     private void createMatrix() {
@@ -49,8 +70,8 @@ public class Interactor {
         int rows = askUntilPositiveInt(
                 prompts.useIndentOf(sizeNode).rows().ask().txt(),
                 matSizeUpperBound,
-                prompts.rows().quitSpecifier().txt(), // no need indent
-                prompts.useIndentOf(sizeNode).rows().err().txt()
+                prompts.useIndentOf(sizeNode).rows().err().txt(),
+                prompts.rows().quitSpecifier().txt() // no need indent
         );
         createMatrixDir.interruptMsg().txt();
 
@@ -63,8 +84,8 @@ public class Interactor {
         int cols = askUntilPositiveInt(
                 prompts.useIndentOf(sizeNode).cols().ask().txt(),
                 matSizeUpperBound,
-                prompts.cols().quitSpecifier().txt(), // no need indent
-                prompts.useIndentOf(sizeNode).cols().err().txt(matSizeUpperBound)
+                prompts.useIndentOf(sizeNode).cols().err().txt(matSizeUpperBound),
+                prompts.cols().quitSpecifier().txt() // no need indent
         );
 
         if (cols == -1) {
@@ -90,8 +111,7 @@ public class Interactor {
                 System.out.println(sb);
                 double elem = askUntilFiniteDouble(
                         prompts.useIndentOf(elementsNode).elementAt().ask().txt(rOut, cOut),
-                        prompts.elementAt().quitSpecifier().txt(), // no need indent
-                        prompts.useIndentOf(elementsNode).elementAt().err().txt()
+                        prompts.useIndentOf(elementsNode).elementAt().err().txt(), prompts.elementAt().quitSpecifier().txt() // no need indent
                 );
 
                 if (Double.isNaN(elem)) {
@@ -108,6 +128,44 @@ public class Interactor {
         sbAppendMat(finalSb, mat, createMatrixDir.body().path("mat").getIndentLev());
         System.out.println(finalSb.toString());
     }
+
+
+
+    private boolean choiceLaxEq(String input, String choice) {
+        if (input.equals(choice)) {
+            return true;
+        }
+        String strippedInput = input.strip();
+        if (strippedInput.equals(choice)) {
+            return true;
+        }
+        String withPoint = choice + ".";
+        return (input.equals(withPoint)
+                || strippedInput.equals(withPoint)
+        );
+    }
+    private Optional<String> choicesLaxEq(String input, String[] choiceKeys) {
+        for (String key : choiceKeys) {
+            if (input.equals(key)) {
+                return Optional.of(key);
+            }
+        }
+        String strippedInput = input.strip();
+        for (String key : choiceKeys) {
+            if (strippedInput.equals(key)) {
+                return Optional.of(key);
+            }
+        }
+        for (String key : choiceKeys) {
+            if (input.equals(key + ".")
+                    || strippedInput.equals(key + ".")
+            ) {
+                return Optional.of(key);
+            }
+        }
+        return Optional.empty();
+    }
+
     private void sbAppendMat(StringBuilder sb, DMatrixRMaj mat, int indentLev) {
         int[] colWidths = new int[mat.numCols];
         for (int c = 0; c < mat.numCols; ++c) {
@@ -145,7 +203,23 @@ public class Interactor {
     }
 
 
-    private int askUntilPositiveInt(String askMsg, int upperBound, String quitChar, String incorrectMsg) {
+    private String askUntilMatch(
+            @NonNull String[] keys,
+            @NonNull String askMsg,
+            @NonNull String incorrectMsg,
+            @NonNull BiFunction<String, String[], Optional<String>> matchFinder
+    ) {
+        System.out.print(askMsg);
+        while (true) {
+            Optional<String> input = matchFinder.apply(scanner.next(), keys);
+            if (input.isPresent()) {
+                return input.get();
+            }
+            System.out.print(incorrectMsg + askMsg);
+        }
+    }
+
+    private int askUntilPositiveInt(String askMsg, int upperBound, String incorrectMsg, String quitChar) {
         System.out.print(askMsg);
         while (true) {
             if (!scanner.hasNextInt()) {
@@ -173,7 +247,7 @@ public class Interactor {
         return scanner.nextInt();
     }
 
-    private double askUntilFiniteDouble(String askMsg, String quitChar, String incorrectMsg) {
+    private double askUntilFiniteDouble(String askMsg, String incorrectMsg, String quitChar) {
         System.out.print(askMsg);
         while (true) {
             if (!scanner.hasNextDouble()) {

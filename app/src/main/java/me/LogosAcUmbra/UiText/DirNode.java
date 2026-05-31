@@ -1,25 +1,40 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 
 
-public class DirNode extends ExistingNode {
+public class DirNode extends ExistingNode<DirNode> {
 
     private final @NonNull LeafNode title;
-    private final @NonNull UiTextNode body;
-    private final @NonNull UiTextNode interruptMsg;
+    private final @NonNull UiTextNode<?> body;
+    private final @NonNull UiTextNode<?> interruptMsg;
     private final @NonNull LeafNode finishMsg;
 
 
     protected DirNode(
             @NonNull JsonNode rawNode, int dirIndentLev, int parentTotalIndentLev,
             @NonNull LeafNode title,
-            @NonNull UiTextNode body,
-            @NonNull UiTextNode interruptMsg,
+            @NonNull UiTextNode<?> body,
+            @NonNull UiTextNode<?> interruptMsg,
             @NonNull LeafNode finishMsg
     ) {
         super(rawNode, dirIndentLev, parentTotalIndentLev);
+        this.title = title;
+        this.body = body;
+        this.interruptMsg = interruptMsg;
+        this.finishMsg = finishMsg;
+    }
+    protected DirNode(
+            @NonNull JsonNode rawNode, int dirIndentLev, int parentTotalIndentLev,
+            @NonNull Int2ObjectMap<DirNode> useIndentCache,
+            @NonNull LeafNode title,
+            @NonNull UiTextNode<?> body,
+            @NonNull UiTextNode<?> interruptMsg,
+            @NonNull LeafNode finishMsg
+    ) {
+        super(rawNode, dirIndentLev, parentTotalIndentLev, useIndentCache);
         this.title = title;
         this.body = body;
         this.interruptMsg = interruptMsg;
@@ -30,9 +45,10 @@ public class DirNode extends ExistingNode {
             throws IllegalArgumentException {
 
         int dirIndentLev = UiTextNode.getIndentLevOf(jNode);
+        int parentTotalIndentLevOfChildren = parentTotalIndentLev + dirIndentLev;
         LeafNode title;
-        UiTextNode body;
-        UiTextNode interruptMsg;
+        UiTextNode<?> body;
+        UiTextNode<?> interruptMsg;
         LeafNode finishMsg;
         try {
 
@@ -43,22 +59,22 @@ public class DirNode extends ExistingNode {
 
             title = LeafNode.of(
                     jTitle,
-                    parentTotalIndentLev + dirIndentLev,
+                    parentTotalIndentLevOfChildren,
                     dirIndentFormat.title()
             );
             body = UiTextNode.of(
                     jBody,
-                    parentTotalIndentLev + dirIndentLev,
+                    parentTotalIndentLevOfChildren,
                     dirIndentFormat.body()
             );
             interruptMsg = UiTextNode.of(
                     jInterruptMsg,
-                    parentTotalIndentLev + dirIndentLev,
+                    parentTotalIndentLevOfChildren,
                     dirIndentFormat.interruptMsg()
             );
             finishMsg = LeafNode.of(
                     jFinishMsg,
-                    parentTotalIndentLev + dirIndentLev,
+                    parentTotalIndentLevOfChildren,
                     dirIndentFormat.finishMsg()
             );
 
@@ -82,11 +98,11 @@ public class DirNode extends ExistingNode {
         return title;
     }
 
-    public @NonNull UiTextNode body() {
+    public @NonNull UiTextNode<?> body() {
         return body;
     }
 
-    public @NonNull UiTextNode interruptMsg() {
+    public @NonNull UiTextNode<?> interruptMsg() {
         return interruptMsg;
     }
 
@@ -95,7 +111,23 @@ public class DirNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    protected @NonNull DirNode self() {
+        return this;
+    }
+
+    @Override
+    public @NonNull DirNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new DirNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev, this.useIndentCache,
+                this.title.useIndent(newParentTotalIndentLev),
+                this.body.useIndent(newParentTotalIndentLev),
+                this.interruptMsg.useIndent(newParentTotalIndentLev),
+                this.finishMsg.useIndent(newParentTotalIndentLev)
+        );
+    }
+
+    @Override
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return switch (propertyName) {
             case "title" -> title;
             case "body" -> body;
@@ -106,7 +138,7 @@ public class DirNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -115,38 +147,6 @@ public class DirNode extends ExistingNode {
         return ExistingNodeType.FIXED_BRANCH;
     }
 
-    @Override
-    public @NonNull DirNode useIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    @Override
-    public @NonNull DirNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull DirNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (DirNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-
-        DirNode result = new DirNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                this.title.useIndent(newParentTotalIndentLev),
-                this.body.useIndent(newParentTotalIndentLev),
-                this.interruptMsg.useIndent(newParentTotalIndentLev),
-                this.finishMsg.useIndent(newParentTotalIndentLev)
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
-    }
 
     private static IllegalArgumentException nodeShouldNotMissing(@NonNull String propertyName, @NonNull JsonNode correspondingJNode)
             throws IllegalArgumentException {

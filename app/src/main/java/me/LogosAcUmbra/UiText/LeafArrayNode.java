@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-public class LeafArrayNode extends ExistingNode {
+public class LeafArrayNode extends ExistingNode<LeafArrayNode> {
     @NonNull LeafNode @NonNull [] leafs;
     @Nullable String txtCache;
 
@@ -20,6 +20,11 @@ public class LeafArrayNode extends ExistingNode {
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
         this.leafs = leafs;
+    }
+
+    @Override
+    protected @NonNull LeafArrayNode self() {
+        return this;
     }
 
     public static @NonNull LeafArrayNode of(
@@ -40,7 +45,7 @@ public class LeafArrayNode extends ExistingNode {
         if (rawNode.isMissingNode()) {
             throw new IllegalArgumentException("node is a missing node");
         }
-        Optional<LeafArrayNode> leafArrayNode = tryOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
+        Optional<LeafArrayNode> leafArrayNode = optOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
         if (leafArrayNode.isEmpty()) {
             throw new IllegalArgumentException(
                     String.format("node (%s) does not contain a valid UiTextLeafArrayNode structure", rawNode)
@@ -49,34 +54,46 @@ public class LeafArrayNode extends ExistingNode {
         return leafArrayNode.get();
     }
 
-    public static @NonNull Optional<LeafArrayNode> tryOf(
+    public static @NonNull Optional<LeafArrayNode> optOf(
             JsonNode rawNode
     ) {
-        return tryOfExistJNode(rawNode, 0, 0);
+        return optOfExistJNode(rawNode, 0, 0);
     }
 
-    public static @NonNull Optional<LeafArrayNode> tryOf(
+    public static @NonNull Optional<LeafArrayNode> optOf(
             JsonNode rawNode, int parentTotalIndentLev
     ) {
-        return tryOfExistJNode(rawNode, parentTotalIndentLev, 0);
+        return optOfExistJNode(rawNode, parentTotalIndentLev, 0);
     }
 
-    public static @NonNull Optional<LeafArrayNode> tryOf(
+    public static @NonNull Optional<LeafArrayNode> optOf(
             JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev
     ) {
         if (rawNode.isMissingNode()) {
             return Optional.empty();
         }
-        return tryOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
+        return optOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull LeafArrayNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        LeafNode [] leafs = new LeafNode[this.leafs.length];
+        for (int i = 0; i < leafs.length; ++i) {
+            leafs[i] = this.leafs[i].useIndent(newParentTotalIndentLev);
+        }
+        return new LeafArrayNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                leafs
+        );
+    }
+
+    @Override
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return MissingNode.getInstance();
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         if (index < 0 || index >= leafs.length) {
             return MissingNode.getInstance();
         }
@@ -128,48 +145,16 @@ public class LeafArrayNode extends ExistingNode {
         return this;
     }
 
-    @Override
-    public @NonNull LeafArrayNode useIndentOf(UiTextNode node) {
-        return (LeafArrayNode) ( (UiTextNode) this ).useIndentOf(node);
-    }
-
-    @Override
-    public @NonNull LeafArrayNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull LeafArrayNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (LeafArrayNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-
-        LeafNode [] leafs = new LeafNode[this.leafs.length];
-        for (int i = 0; i < leafs.length; ++i) {
-            leafs[i] = this.leafs[i].useIndent(newParentTotalIndentLev);
-        }
-        LeafArrayNode result = new LeafArrayNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                leafs
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
-    }
-
-
     public @NonNull LeafNode get(int index) {
         Objects.checkIndex(index, leafs.length);
         return leafs[index];
     }
 
-    protected static @NonNull Optional<LeafArrayNode> tryOfExistJNode(
+    protected static @NonNull Optional<LeafArrayNode> optOfExistJNode(
             JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev
     ) {
         int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
-        return tryOfInternal(rawNode, indentLev, parentTotalIndentLev);
+        return optOfInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
     /**
@@ -184,7 +169,7 @@ public class LeafArrayNode extends ExistingNode {
      * if the node is in a valid structure for an UiTextLeafNode instance,
      * else {@code Optional.empty()}
      */
-    protected static @NonNull Optional<LeafArrayNode> tryOfInternal(
+    protected static @NonNull Optional<LeafArrayNode> optOfInternal(
             JsonNode rawNode, int indentLev, int parentTotalIndentLev
     ) {
         if (rawNode.isNull()) {
@@ -218,7 +203,7 @@ public class LeafArrayNode extends ExistingNode {
         }
         LeafNode[] leafs = new LeafNode[leafsNode.size()];
         for (int i = 0; i < leafsNode.size(); ++i) {
-            Optional<LeafNode> opLeafNode = LeafNode.tryOfExistJNode(
+            Optional<LeafNode> opLeafNode = LeafNode.optOfExistJNode(
                     leafsNode.get(i), parentTotalIndentLev + indentLev, 0
             );
             if (opLeafNode.isEmpty()) { // LeafArrayNode can only contain valid LeafNode instances

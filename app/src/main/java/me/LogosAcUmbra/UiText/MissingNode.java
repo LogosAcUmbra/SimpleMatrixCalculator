@@ -5,7 +5,9 @@ import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.JsonNodeType;
 
-public non-sealed class MissingNode extends UiTextNode {
+import java.util.Optional;
+
+public non-sealed class MissingNode extends UiTextNode<MissingNode> {
 
     private static final @NonNull MissingNode INSTANCE = new MissingNode();
 
@@ -17,12 +19,12 @@ public non-sealed class MissingNode extends UiTextNode {
 
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull MissingNode path(@NonNull String propertyName) {
         return INSTANCE;
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull MissingNode path(int index) {
         return INSTANCE;
     }
 
@@ -68,18 +70,38 @@ public non-sealed class MissingNode extends UiTextNode {
     }
 
     @Override
-    public @NonNull UiTextNode useIndentOf(UiTextNode node) throws IllegalStateException {
+    public @NonNull MissingNode useIndentOf(UiTextNode<?> node) throws IllegalStateException {
         throw nodeIsMissingException();
     }
 
     @Override
-    public @NonNull UiTextNode useIndentOf(ExistingNode node) {
+    public @NonNull MissingNode addIndentOf(UiTextNode<?> node) {
         throw nodeIsMissingException();
     }
 
     @Override
-    public @NonNull UiTextNode useIndent(int newParentTotalIndentLev) {
+    public @NonNull MissingNode useIndentOfExisting(ExistingNode<?> eNode) {
         throw nodeIsMissingException();
+    }
+
+    @Override
+    public @NonNull MissingNode addIndentOfExisting(ExistingNode<?> eNode) {
+        throw nodeIsMissingException();
+    }
+
+    @Override
+    public @NonNull MissingNode useIndent(int newParentTotalIndentLev) {
+        throw nodeIsMissingException();
+    }
+
+    @Override
+    public @NonNull MissingNode addIndent(int extraParentTotalIndentLev) {
+        throw nodeIsMissingException();
+    }
+
+    @Override
+    public Optional<ExistingNode<?>> optToExistingNode() throws IllegalStateException {
+        return Optional.empty();
     }
 
     protected IllegalStateException nodeIsMissingException() {

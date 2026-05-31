@@ -11,21 +11,26 @@ import java.util.HashMap;
 import java.util.Optional;
 
 
-public class DynamicBranchNode extends ExistingNode {
+public class DynamicBranchNode extends ExistingNode<DynamicBranchNode> {
 
-    protected final @Nullable HashMap<String, UiTextNode> pathKeys;
-    protected final @Nullable ArrayList<UiTextNode> pathIndices;
+    protected final @Nullable HashMap<String, UiTextNode<?>> pathKeys;
+    protected final @Nullable ArrayList<UiTextNode<?>> pathIndices;
 
     protected DynamicBranchNode(
             @NonNull JsonNode rawNode,
                 int indentLev,
                 int parentTotalIndentLev,
-            @Nullable HashMap<String, UiTextNode> pathKeys,
-            @Nullable ArrayList<UiTextNode> pathIndices
+            @Nullable HashMap<String, UiTextNode<?>> pathKeys,
+            @Nullable ArrayList<UiTextNode<?>> pathIndices
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
         this.pathKeys = pathKeys;
         this.pathIndices = pathIndices;
+    }
+
+    @Override
+    protected @NonNull DynamicBranchNode self() {
+        return this;
     }
 
     public static @NonNull DynamicBranchNode of(@NonNull JsonNode rawNode) {
@@ -42,13 +47,13 @@ public class DynamicBranchNode extends ExistingNode {
         return ofInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
-    public static @NonNull Optional<DynamicBranchNode> tryOf(JsonNode rawNode) {
-        return tryOf(rawNode, 0, 0);
+    public static @NonNull Optional<DynamicBranchNode> optOf(JsonNode rawNode) {
+        return optOf(rawNode, 0, 0);
     }
-    public static @NonNull Optional<DynamicBranchNode> tryOf(JsonNode rawNode, int parentTotalIndentLev) {
-        return tryOf(rawNode, parentTotalIndentLev, 0);
+    public static @NonNull Optional<DynamicBranchNode> optOf(JsonNode rawNode, int parentTotalIndentLev) {
+        return optOf(rawNode, parentTotalIndentLev, 0);
     }
-    public static @NonNull Optional<DynamicBranchNode> tryOf(JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+    public static @NonNull Optional<DynamicBranchNode> optOf(JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
         if (rawNode.isMissingNode()) {
             return Optional.empty();
         }
@@ -69,6 +74,18 @@ public class DynamicBranchNode extends ExistingNode {
         return ofInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
+    @Override
+    public @NonNull DynamicBranchNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        // lazy initialization
+        HashMap<String, UiTextNode<?>> pathKeys = (this.pathKeys == null) ? null : new HashMap<>(this.pathKeys.size());
+        ArrayList<UiTextNode<?>> pathIndices = (this.pathIndices == null) ? null : new ArrayList<>(this.pathIndices.size());
+
+        return new DynamicBranchNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                pathKeys, pathIndices
+        );
+    }
+
     /**
      * access: package + child
      * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
@@ -79,28 +96,28 @@ public class DynamicBranchNode extends ExistingNode {
     protected static @NonNull DynamicBranchNode ofInternal(
             @NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev
     ) {
-        HashMap<String, UiTextNode> pathKeys = (rawNode.isObject()) ? (new HashMap<>()) : (null);
-        ArrayList<UiTextNode> pathIndices = (rawNode.isArray()) ? (new ArrayList<>()) : (null);
+        HashMap<String, UiTextNode<?>> pathKeys = (rawNode.isObject()) ? (new HashMap<>()) : (null);
+        ArrayList<UiTextNode<?>> pathIndices = (rawNode.isArray()) ? (new ArrayList<>()) : (null);
         return new DynamicBranchNode(rawNode, indentLev, parentTotalIndentLev, pathKeys, pathIndices);
     }
 
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         if (pathKeys == null) { // this node is not a map
             return MissingNode.getInstance();
         }
-        UiTextNode cache = pathKeys.get(propertyName);
+        UiTextNode<?> cache = pathKeys.get(propertyName);
         if (cache != null) { // cache hit
             return cache;
         }
         JsonNode nextJsonNode = rawNode.path(propertyName);
-        UiTextNode nextMsgNode = UiTextNode.of(nextJsonNode, parentTotalIndentLev + indentLev);
+        UiTextNode<?> nextMsgNode = UiTextNode.of(nextJsonNode, parentTotalIndentLev + indentLev);
         pathKeys.put(propertyName, nextMsgNode);
         return nextMsgNode;
     }
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         if (pathIndices == null) { // this node is not an array
             return MissingNode.getInstance();
         }
@@ -108,7 +125,7 @@ public class DynamicBranchNode extends ExistingNode {
             throw new IllegalArgumentException(String.format("index (%d) must be non-negative", index));
         }
         if (index < pathIndices.size()) {
-            UiTextNode cache = pathIndices.get(index);
+            UiTextNode<?> cache = pathIndices.get(index);
             if (cache != null) { // cache hit
                 return cache;
             }
@@ -118,7 +135,7 @@ public class DynamicBranchNode extends ExistingNode {
         }
 
         JsonNode nextJsonNode = rawNode.path(index);
-        UiTextNode nextMsgNode = UiTextNode.of(nextJsonNode, parentTotalIndentLev + indentLev);
+        UiTextNode<?> nextMsgNode = UiTextNode.of(nextJsonNode, parentTotalIndentLev + indentLev);
         pathIndices.set(index, nextMsgNode);
         return nextMsgNode;
     }
@@ -128,33 +145,8 @@ public class DynamicBranchNode extends ExistingNode {
         return ExistingNodeType.DYNAMIC_BRANCH;
     }
 
-    @Override
-    public @NonNull DynamicBranchNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull DynamicBranchNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (DynamicBranchNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-        // lazy initialization
-        HashMap<String, UiTextNode> pathKeys = (this.pathKeys == null) ? null : new HashMap<>(this.pathKeys.size());
-        ArrayList<UiTextNode> pathIndices = (this.pathIndices == null) ? null : new ArrayList<>(this.pathIndices.size());
-
-        DynamicBranchNode result = new DynamicBranchNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                pathKeys, pathIndices
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
-    }
-
     public @NonNull Optional<LeafNode> tryToLeafNode() {
-        return LeafNode.tryOf(rawNode, parentTotalIndentLev);
+        return LeafNode.optOf(rawNode, parentTotalIndentLev);
     }
 
 }

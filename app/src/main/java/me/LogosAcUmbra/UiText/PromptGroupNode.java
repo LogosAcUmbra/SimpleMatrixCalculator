@@ -1,9 +1,11 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 
-public class PromptGroupNode extends ExistingNode {
+public class PromptGroupNode extends ExistingNode<PromptGroupNode> {
 
     private final PromptNode choices;
     private final PromptNode rows;
@@ -11,9 +13,20 @@ public class PromptGroupNode extends ExistingNode {
     private final PromptNode elementAt;
 
     protected PromptGroupNode(
-            @NonNull JsonNode jNode, int indentLev, int parentTotalIndentLev,
+            @NonNull JsonNode jNode,
             @NonNull PromptNode choices, @NonNull PromptNode rows, @NonNull PromptNode cols, @NonNull PromptNode elementAt) {
-        super(jNode, indentLev, parentTotalIndentLev);
+        super(jNode, 0, 0);
+        this.choices = choices;
+        this.rows = rows;
+        this.cols = cols;
+        this.elementAt = elementAt;
+    }
+
+    protected PromptGroupNode(
+            @NonNull JsonNode jNode, int indentLev, int parentTotalIndentLev,
+            @NonNull Int2ObjectMap<PromptGroupNode> useIndentCache,
+            @NonNull PromptNode choices, @NonNull PromptNode rows, @NonNull PromptNode cols, @NonNull PromptNode elementAt) {
+        super(jNode, indentLev, parentTotalIndentLev, useIndentCache);
         this.choices = choices;
         this.rows = rows;
         this.cols = cols;
@@ -23,16 +36,35 @@ public class PromptGroupNode extends ExistingNode {
     public static @NonNull PromptGroupNode of(PromptIndentFormat promptIndentFormat, JsonNode jNode)
             throws IllegalArgumentException
     {
-
+        int indentLev = UiTextNode.getIndentLevOf(jNode);
+        if (indentLev != 0) {
+            throw new IllegalArgumentException("prompts root cannot have indent lev");
+        }
         PromptNode choices = PromptNode.of(promptIndentFormat, jNode.path("choices"));
         PromptNode rows = PromptNode.of(promptIndentFormat, jNode.path("rows"));
         PromptNode cols = PromptNode.of(promptIndentFormat, jNode.path("cols"));
         PromptNode elementAt = PromptNode.of(promptIndentFormat, jNode.path("elementAt"));
-        return new PromptGroupNode(jNode, 0, 0, choices, rows, cols, elementAt);
+        return new PromptGroupNode(jNode, choices, rows, cols, elementAt);
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    protected @NonNull PromptGroupNode self() {
+        return this;
+    }
+
+    @Override
+    public @NonNull PromptGroupNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new PromptGroupNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev, this.useIndentCache,
+                choices.useIndent(newParentTotalIndentLev),
+                rows.useIndent(newParentTotalIndentLev),
+                cols.useIndent(newParentTotalIndentLev),
+                elementAt.useIndent(newParentTotalIndentLev)
+        );
+    }
+
+    @Override
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return switch (propertyName) {
             case ("choices") -> choices;
             case ("rows") -> rows;
@@ -43,7 +75,7 @@ public class PromptGroupNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -61,55 +93,5 @@ public class PromptGroupNode extends ExistingNode {
     @Override
     public @NonNull ExistingNodeType getExistingNodeType() {
         return ExistingNodeType.FIXED_BRANCH;
-    }
-
-    @Override
-    public @NonNull PromptGroupNode useIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    @Override
-    public @NonNull PromptGroupNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    // @Override
-    public @NonNull PromptGroupNode addIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    // @Override
-    public @NonNull PromptGroupNode addIndentOf(ExistingNode eNode) {
-        return addIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    // @Override
-    public @NonNull PromptGroupNode addIndent(int extraParentTotalIndentLev) {
-        return useIndent(extraParentTotalIndentLev + this.parentTotalIndentLev);
-    }
-
-    @Override
-    public @NonNull PromptGroupNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (PromptGroupNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-        PromptGroupNode result =  new PromptGroupNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                choices.useIndent(newParentTotalIndentLev),
-                rows.useIndent(newParentTotalIndentLev),
-                cols.useIndent(newParentTotalIndentLev),
-                elementAt.useIndent(newParentTotalIndentLev)
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
     }
 }

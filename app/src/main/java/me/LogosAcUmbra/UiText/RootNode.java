@@ -1,11 +1,12 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 
 import static me.LogosAcUmbra.Utils.JsonConfig.JSON_MAPPER;
 
-public class RootNode extends ExistingNode {
+public class RootNode extends ExistingNode<RootNode> {
 
     protected PromptGroupNode prompts;
     protected DirGroupNode dirs;
@@ -19,6 +20,15 @@ public class RootNode extends ExistingNode {
         this.dirs = dirs;
     }
 
+    protected RootNode(
+            JsonNode rootNode, int indentLev, int parenTotalIndentLev, Int2ObjectMap<RootNode> useIndentCache,
+            PromptGroupNode prompts, DirGroupNode dirs
+    ) {
+        super(rootNode, indentLev, parenTotalIndentLev, useIndentCache);
+        this.prompts = prompts;
+        this.dirs = dirs;
+    }
+
     protected static @NonNull RootNode create(JsonNode rootNode, PromptGroupNode prompts, DirGroupNode dirs) {
         return new RootNode(
                 rootNode, 0, 0,
@@ -26,7 +36,17 @@ public class RootNode extends ExistingNode {
         );
     }
 
+    @Override
+    protected @NonNull RootNode self() {
+        return this;
+    }
+
     public static @NonNull RootNode of(JsonNode rootNode) {
+        int indentLev = UiTextNode.getIndentLevOf(rootNode);
+        if (indentLev != 0) {
+            throw new IllegalArgumentException("prompts root cannot have extra indent lev");
+        }
+
         PromptIndentFormat promptIndentFormat =
                 JSON_MAPPER.treeToValue(rootNode.path("promptIndentFormat"), PromptIndentFormat.class);
         DirIndentFormat dirIndentFormat =
@@ -37,6 +57,14 @@ public class RootNode extends ExistingNode {
         return create(rootNode, prompts, dirs);
     }
 
+    @Override
+    public @NonNull RootNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new RootNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev, this.useIndentCache,
+                this.prompts.useIndent(newParentTotalIndentLev), this.dirs.useIndent(newParentTotalIndentLev)
+        );
+    }
+
     public PromptGroupNode prompts() {
         return prompts;
     }
@@ -45,7 +73,7 @@ public class RootNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return switch (propertyName) {
             case ("prompt") -> prompts;
             case ("dir") -> dirs;
@@ -54,7 +82,7 @@ public class RootNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -63,24 +91,4 @@ public class RootNode extends ExistingNode {
         return ExistingNodeType.FIXED_BRANCH;
     }
 
-    @Override
-    public @NonNull RootNode useIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    @Override
-    public @NonNull RootNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull RootNode useIndent(int newParentTotalIndentLev) {
-        return new RootNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                this.prompts.useIndent(newParentTotalIndentLev), this.dirs.useIndent(newParentTotalIndentLev)
-        );
-    }
 }

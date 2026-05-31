@@ -1,16 +1,25 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 
-public class DirGroupNode extends ExistingNode {
+public class DirGroupNode extends ExistingNode<DirGroupNode> {
 
     private final @NonNull DirNode menu;
     private final @NonNull DirNode createMatrix;
 
-    protected DirGroupNode(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev,
+    protected DirGroupNode(@NonNull JsonNode rawNode, int indentLev,
                            @NonNull DirNode menu, @NonNull DirNode createMatrix) {
-        super(rawNode, indentLev, parentTotalIndentLev);
+        super(rawNode, indentLev, 0);
+        this.menu = menu;
+        this.createMatrix = createMatrix;
+    }
+
+    protected DirGroupNode(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev,
+                           @NonNull Int2ObjectMap<DirGroupNode> useIndentCache,
+                           @NonNull DirNode menu, @NonNull DirNode createMatrix) {
+        super(rawNode, indentLev, parentTotalIndentLev, useIndentCache);
         this.menu = menu;
         this.createMatrix = createMatrix;
     }
@@ -20,7 +29,7 @@ public class DirGroupNode extends ExistingNode {
         try {
             DirNode menu = DirNode.of(dirIndentFormat, jNode.path("menu"), indentLev);
             DirNode createMatrix = DirNode.of(dirIndentFormat, jNode.path("createMatrix"), indentLev);
-            return new DirGroupNode(jNode, indentLev, 0, menu, createMatrix);
+            return new DirGroupNode(jNode, indentLev, menu, createMatrix);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
                     String.format("node (%s) cannot be parsed to DirGroup", jNode),
@@ -38,7 +47,20 @@ public class DirGroupNode extends ExistingNode {
 
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    protected @NonNull DirGroupNode self() {
+        return this;
+    }
+
+    @Override
+    public @NonNull DirGroupNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new DirGroupNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev, this.useIndentCache,
+                this.menu.useIndent(newParentTotalIndentLev), this.createMatrix.useIndent(newParentTotalIndentLev)
+        );
+    }
+
+    @Override
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return switch (propertyName) {
             case ("menu") -> menu;
             case ("createMatrix") -> createMatrix;
@@ -47,7 +69,7 @@ public class DirGroupNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -56,32 +78,4 @@ public class DirGroupNode extends ExistingNode {
         return ExistingNodeType.FIXED_BRANCH;
     }
 
-    @Override
-    public @NonNull DirGroupNode useIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    @Override
-    public @NonNull DirGroupNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull DirGroupNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (DirGroupNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-        DirGroupNode result = new DirGroupNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                this.menu.useIndent(newParentTotalIndentLev), this.createMatrix.useIndent(newParentTotalIndentLev)
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
-    }
 }

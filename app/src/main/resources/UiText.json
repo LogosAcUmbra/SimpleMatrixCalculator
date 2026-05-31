@@ -13,7 +13,7 @@
   "prompts": {
     "choices": {
       "ask": "choice: ",
-      "err": "invalid choice",
+      "err": "invalid choice\n",
       "quitMsg": null,
       "quitSpecifier": null
     },

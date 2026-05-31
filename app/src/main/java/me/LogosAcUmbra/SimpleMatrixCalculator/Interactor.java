@@ -9,7 +9,6 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 
 public class Interactor {
@@ -76,7 +75,7 @@ public class Interactor {
         createMatrixDir.interruptMsg().txt();
 
         if (rows == -1) {
-            System.out.println(prompts.rows().useIndentOf(createMatrixDir).quitMsg().txt());
+            System.out.println(prompts.rows().useIndentOfExisting(createMatrixDir).quitMsg().txt());
             return;
         }
 
@@ -89,7 +88,7 @@ public class Interactor {
         );
 
         if (cols == -1) {
-            System.out.println(prompts.useIndentOf(createMatrixDir).cols().quitMsg().txt());
+            System.out.println(prompts.useIndentOfExisting(createMatrixDir).cols().quitMsg().txt());
             return;
         }
 

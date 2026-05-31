@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 
 
-public class LeafNode extends ExistingNode {
+public class LeafNode extends ExistingNode<LeafNode> {
 
     protected final @NonNull String text;
 
@@ -18,6 +18,11 @@ public class LeafNode extends ExistingNode {
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
         this.text = text;
+    }
+
+    @Override
+    protected @NonNull LeafNode self() {
+        return this;
     }
 
     public static @NonNull LeafNode of(@NonNull JsonNode rawNode)
@@ -35,18 +40,18 @@ public class LeafNode extends ExistingNode {
         }
         return ofExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode) {
-        return tryOf(rawNode, 0, 0);
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode) {
+        return optOf(rawNode, 0, 0);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode, int parentTotalIndentLev) {
-        return tryOf(rawNode, parentTotalIndentLev, 0);
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode, int parentTotalIndentLev) {
+        return optOf(rawNode, parentTotalIndentLev, 0);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
         if (rawNode.isMissingNode()) {
             return Optional.empty();
         }
         int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
-        return tryOfInternal(rawNode, indentLev, parentTotalIndentLev);
+        return optOfInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
 
@@ -54,9 +59,10 @@ public class LeafNode extends ExistingNode {
         int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
         return ofInternal(rawNode, indentLev, parentTotalIndentLev);
     }
-    protected static @NonNull Optional<LeafNode> tryOfExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+
+    protected static @NonNull Optional<LeafNode> optOfExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
         int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
-        return tryOfInternal(rawNode, indentLev, parentTotalIndentLev);
+        return optOfInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
     /**
@@ -127,7 +133,7 @@ public class LeafNode extends ExistingNode {
      * if the node is in a valid structure for an UiTextLeafNode instance,
      * else {@code Optional.empty()}
      */
-    static @NonNull Optional<LeafNode> tryOfInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
+    static @NonNull Optional<LeafNode> optOfInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         if (rawNode.isNull()) {
             return Optional.of( LeafNode.ofEmpty(rawNode, indentLev, parentTotalIndentLev) );
         }
@@ -196,6 +202,14 @@ public class LeafNode extends ExistingNode {
     }
 
     @Override
+    public @NonNull LeafNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new LeafNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                this.text
+        );
+    }
+
+    @Override
     public @NonNull String txt() {
         return " ".repeat((indentLev + parentTotalIndentLev) * UiTextManager.getInstance().getSetting().indentSize) + text;
     }
@@ -206,12 +220,12 @@ public class LeafNode extends ExistingNode {
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return MissingNode.getInstance();
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -233,24 +247,4 @@ public class LeafNode extends ExistingNode {
         return ExistingNodeType.LEAF;
     }
 
-    @Override
-    public @NonNull LeafNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull LeafNode useIndent(int newParentTotalIndentLev) {
-        if (newParentTotalIndentLev == this.parentTotalIndentLev) {
-            return this;
-        }
-        if (useIndentCache.containsKey(newParentTotalIndentLev)) {
-            return (LeafNode) useIndentCache.get(newParentTotalIndentLev);
-        }
-        LeafNode result = new LeafNode(
-                this.rawNode, this.indentLev, newParentTotalIndentLev,
-                this.text
-        );
-        useIndentCache.put(newParentTotalIndentLev, result);
-        return result;
-    }
 }

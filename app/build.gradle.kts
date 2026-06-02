@@ -16,9 +16,12 @@ dependencies {
 
     // This dependency is used by the application.
     implementation(libs.guava)
+    implementation(libs.jackson.core)
+    implementation(libs.matheclipse.core)
+    implementation(libs.fastutil)
+    implementation("org.slf4j:slf4j-nop:2.0.13")
     implementation("org.ejml:ejml-all:0.44.0")
-    implementation("tools.jackson.core:jackson-databind:3.1.3")
-    implementation("it.unimi.dsi:fastutil:8.5.18")
+    // implementation("org.ujmp:ujmp-core:0.3.0")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

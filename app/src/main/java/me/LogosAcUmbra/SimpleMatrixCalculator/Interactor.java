@@ -63,7 +63,7 @@ public class Interactor {
         System.out.print(createMatrixDir.title().txt());
 
         // size header
-        UiTextNode sizeNode = createMatrixDir.body().path("size");
+        UiTextNode<?> sizeNode = createMatrixDir.body().path("size");
         System.out.print(sizeNode.path("header").txt());
         // rows
         int rows = askUntilPositiveInt(
@@ -93,7 +93,7 @@ public class Interactor {
         }
 
         // elements
-        UiTextNode elementsNode = createMatrixDir.body().path("elements");
+        UiTextNode<?> elementsNode = createMatrixDir.body().path("elements");
         // elementAt
         String name = section.getUnusedDefaultName();
         DMatrixRMaj mat = section.addMatrix(name, rows, cols);

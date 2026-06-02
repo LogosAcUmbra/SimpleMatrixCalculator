@@ -7,7 +7,7 @@ public class App {
         try {
             interactor = new Interactor();
             interactor.start();
-        } catch (Exception e) {
+        } catch (final Exception e) {
             e.printStackTrace();
             return;
         }

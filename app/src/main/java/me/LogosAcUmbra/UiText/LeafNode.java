@@ -1,22 +1,28 @@
 package me.LogosAcUmbra.UiText;
 
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
+import java.util.Map;
 import java.util.Optional;
 
 
-public class LeafNode extends ExistingNode {
+public class LeafNode extends ExistingNode<LeafNode> {
 
-    protected @Nullable String text;
+    protected final @NonNull String text;
 
     protected LeafNode(
             @NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev,
-            @Nullable String text
+            @NonNull String text
     ) {
         super(rawNode, indentLev, parentTotalIndentLev);
         this.text = text;
+    }
+
+    @Override
+    protected @NonNull LeafNode self() {
+        return this;
     }
 
     public static @NonNull LeafNode of(@NonNull JsonNode rawNode)
@@ -34,59 +40,76 @@ public class LeafNode extends ExistingNode {
         }
         return ofExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode) {
-        return tryOf(rawNode, 0, 0);
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode) {
+        return optOf(rawNode, 0, 0);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode, int parentTotalIndentLev) {
-        return tryOf(rawNode, parentTotalIndentLev, 0);
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode, int parentTotalIndentLev) {
+        return optOf(rawNode, parentTotalIndentLev, 0);
     }
-    public static @NonNull Optional<LeafNode> tryOf(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+    public static @NonNull Optional<LeafNode> optOf(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
         if (rawNode.isMissingNode()) {
             return Optional.empty();
         }
-        return tryOfExistJNode(rawNode, parentTotalIndentLev, defaultIndentLev);
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        return optOfInternal(rawNode, indentLev, parentTotalIndentLev);
+    }
+
+
+    protected static @NonNull LeafNode ofExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        return ofInternal(rawNode, indentLev, parentTotalIndentLev);
+    }
+
+    protected static @NonNull Optional<LeafNode> optOfExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+        int indentLev = getIndentLevOf(rawNode, defaultIndentLev);
+        return optOfInternal(rawNode, indentLev, parentTotalIndentLev);
     }
 
     /**
      * access: package + child
-     * @param rawNode a <b> NOT MISSING </b> JsonNode instance
+     * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
+     * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})
      * @param parentTotalIndentLev parentTotalIndentLev
-     * @param defaultIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
      * @return a new LeafNode instance
      * @throws IllegalArgumentException if the node is not in valid structure for an UiTextLeafNode instance
      */
-    protected static @NonNull LeafNode ofExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev)
+    protected static @NonNull LeafNode ofInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev)
             throws IllegalArgumentException
     {
         try {
             if (rawNode.isNull()) {
-                return LeafNode.ofNull(rawNode, parentTotalIndentLev, defaultIndentLev);
+                return LeafNode.ofEmpty(rawNode, indentLev, parentTotalIndentLev);
             }
             if (rawNode.isString()) {
-                return LeafNode.ofString(rawNode, parentTotalIndentLev, defaultIndentLev);
+                return LeafNode.ofString(rawNode, indentLev, parentTotalIndentLev);
             }
             if (!rawNode.isObject()) {
                 throw new IllegalArgumentException("node is neither null, string nor map.");
             }
-            JsonNode indentLevJNode = rawNode.path("indentLev");
-            if (indentLevJNode.isMissingNode()) {
-                throw new IllegalArgumentException("node is map but node.indentLev is missing");
+            ObjectNode objNode = rawNode.asObject();
+            JsonNode lineJNode = null;
+            for (Map.Entry<String, JsonNode> pair : objNode.properties()) {
+                if (pair.getKey().equals("indentLev")) {
+                    continue;
+                }
+                if (!pair.getKey().equals("line")) {
+                    throw new IllegalArgumentException("node must has no properties other than \"indentLev\" and \"line\" .");
+                }
+                // pair = "line" entry
+                lineJNode = pair.getValue();
+                // continue // construct after ensuring no other properties
             }
-            if (!indentLevJNode.isInt()) {
-                throw new IllegalArgumentException("node is map but node.indentLev is not an integer");
-            }
-            JsonNode lineJNode = rawNode.path("line");
-            if (lineJNode.isMissingNode()) {
-                return new LeafNode(
-                        rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
-                        null
+            if (lineJNode == null) { // missing node
+                // LeafNode can have no explicit "line" property, assumed to be null
+                return ofEmpty(
+                        rawNode, indentLev, parentTotalIndentLev
                 );
             }
-            if (!lineJNode.isString()) {
-                throw new IllegalArgumentException("node is map but node.line is not a string");
+            if (!lineJNode.isString()) { // "line" node has illegal value type
+                throw new IllegalArgumentException("node.line has to be a String");
             }
             return new LeafNode(
-                    rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
+                    rawNode, indentLev, parentTotalIndentLev,
                     lineJNode.stringValue()
             );
         } catch (IllegalArgumentException e) {
@@ -101,48 +124,51 @@ public class LeafNode extends ExistingNode {
     /**
      * access: package + child
      * <p>
-     *     null, String, {"indentLev": int, Optional("text": String]) }
+     *     null, String, {"indentLev": int #optional, "line": String #optional }
      * </p>
-     * @param rawNode a <b> NOT MISSING </b> JsonNode instance
-     * @param parentTotalIndentLev parentTotalIndentLev
-     * @param defaultIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
+     * @param rawNode a <b> NOT MISSING </b> JsonNode instance (i.e. return false on {@link JsonNode#isMissingNode()})
+     * @param indentLev the indentLev <b> PARSED </b> from rawNode (should get from {@link UiTextNode#getIndentLevOf})
+     * @param parentTotalIndentLev default value for indentLev if {rawNode.path("indentLev")} is missing
      * @return a new LeafNode instance wrapped with {@code Optional.of()}
      * if the node is in a valid structure for an UiTextLeafNode instance,
      * else {@code Optional.empty()}
      */
-    static @NonNull Optional<LeafNode> tryOfExistJNode(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
-        if (rawNode.isMissingNode()) {
-            return Optional.empty();
-        }
+    static @NonNull Optional<LeafNode> optOfInternal(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         if (rawNode.isNull()) {
-            return Optional.of( LeafNode.ofNull(rawNode, parentTotalIndentLev, defaultIndentLev) );
+            return Optional.of( LeafNode.ofEmpty(rawNode, indentLev, parentTotalIndentLev) );
         }
         if (rawNode.isString()) {
-            return Optional.of( LeafNode.ofString(rawNode, parentTotalIndentLev, defaultIndentLev) );
+            return Optional.of( LeafNode.ofString(rawNode, indentLev, parentTotalIndentLev) );
         }
         if (!rawNode.isObject()) {
             return Optional.empty();
         }
-        JsonNode indentLevJNode = rawNode.path("indentLev");
-        if (indentLevJNode.isMissingNode() || !indentLevJNode.isInt()) {
-            return Optional.empty();
-        }
-        JsonNode lineJNode = rawNode.path("line");
-        if (!lineJNode.isMissingNode()) {
-            if (!lineJNode.isString()) {
-                return Optional.empty();
+        ObjectNode objNode = rawNode.asObject();
+        JsonNode lineJNode = null;
+        for (Map.Entry<String, JsonNode> pair : objNode.properties()) {
+            if (pair.getKey().equals("indentLev")) {
+                continue;
             }
-            return Optional.of(
-                    new LeafNode(
-                            rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
-                            lineJNode.stringValue()
-                    )
-            );
+            if (!pair.getKey().equals("line")) {
+                return Optional.empty(); // LeafNode must not have any other properties
+            }
+            // pair = "line" entry
+            lineJNode = pair.getValue();
+            // continue // construct after ensuring no other properties
+        }
+        if (lineJNode == null) { // missing node
+            // LeafNode can have no explicit "line" property, assumed to be null
+            return Optional.of( ofEmpty(
+                    rawNode, indentLev, parentTotalIndentLev
+            ));
+        }
+        if (!lineJNode.isString()) { // "line" node has illegal value type
+            return Optional.empty();
         }
         return Optional.of(
                 new LeafNode(
-                        rawNode, indentLevJNode.intValue(), parentTotalIndentLev,
-                        null
+                        rawNode, indentLev, parentTotalIndentLev,
+                        lineJNode.stringValue()
                 )
         );
     }
@@ -150,51 +176,56 @@ public class LeafNode extends ExistingNode {
     /**
      * access: private helper
      * @return new LeafNode(
-     * {@code jsonNode}, {@code defaultIndentLev}, {@code parentTotalIndentLev},
+     * {@code jsonNode}, {@code indentLev}, {@code parentTotalIndentLev},
      * LeafNodeType.NULL, null
      * )
      * */
-    private static @NonNull LeafNode ofNull(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+    private static @NonNull LeafNode ofEmpty(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         return new LeafNode(
-                rawNode, defaultIndentLev, parentTotalIndentLev,
-                null
+                rawNode, indentLev, parentTotalIndentLev,
+                ""
         );
     }
     /**
      * private helper
      * @return new LeafNode(
-     *            {@code rawNode}, {@code defaultIndentLev}, {@code parentTotalIndentLev},
+     *            {@code rawNode}, {@code indentLev}, {@code parentTotalIndentLev},
      *            LeafNodeType.STRING, {@code rawNode}.stringValue()
      *    )
      * @throws tools.jackson.databind.exc.JsonNodeException -- from rawNode.stringValue()
      * */
-    private static @NonNull LeafNode ofString(@NonNull JsonNode rawNode, int parentTotalIndentLev, int defaultIndentLev) {
+    private static @NonNull LeafNode ofString(@NonNull JsonNode rawNode, int indentLev, int parentTotalIndentLev) {
         return new LeafNode(
-                rawNode, defaultIndentLev, parentTotalIndentLev,
+                rawNode, indentLev, parentTotalIndentLev,
                 rawNode.stringValue()
         );
     }
 
     @Override
-    public @Nullable String get() {
+    public @NonNull LeafNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new LeafNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev,
+                this.text
+        );
+    }
+
+    @Override
+    public @NonNull String txt() {
         return " ".repeat((indentLev + parentTotalIndentLev) * UiTextManager.getInstance().getSetting().indentSize) + text;
     }
 
     @Override
-    public @NonNull String get(Object... args) {
-        if (text == null) {
-            throw new IllegalArgumentException(String.format("node (%s) is not string", rawNode));
-        }
+    public @NonNull String txt(Object... args) {
         return " ".repeat((indentLev + parentTotalIndentLev) * UiTextManager.getInstance().getSetting().indentSize) + String.format(text, args);
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return MissingNode.getInstance();
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
@@ -204,11 +235,11 @@ public class LeafNode extends ExistingNode {
     }
     @Override
     public boolean isNull() {
-        return text == null;
+        return rawNode.isNull();
     }
     @Override
     public boolean isString() {
-        return text != null;
+        return rawNode.isString();
     }
 
     @Override
@@ -216,16 +247,4 @@ public class LeafNode extends ExistingNode {
         return ExistingNodeType.LEAF;
     }
 
-    @Override
-    public @NonNull LeafNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull LeafNode useIndent(int newExtraIndentLev) {
-        return new LeafNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                this.text
-        );
-    }
 }

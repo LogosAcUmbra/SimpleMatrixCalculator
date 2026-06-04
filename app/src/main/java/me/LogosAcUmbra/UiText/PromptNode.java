@@ -1,57 +1,60 @@
 package me.LogosAcUmbra.UiText;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 
-public class PromptNode extends ExistingNode{
+public class PromptNode extends ExistingNode<PromptNode> {
     protected final @NonNull LeafNode ask;
     protected final @NonNull LeafNode err;
     protected final @NonNull LeafNode quitMsg;
     protected final @NonNull LeafNode quitSpecifier;
 
     protected PromptNode(
-            @NonNull JsonNode jNode,
-            int indentLev,
-            int parentTotalIndentLev,
+            @NonNull JsonNode jNode, int indentLev,
             @NonNull LeafNode ask,
             @NonNull LeafNode err,
             @NonNull LeafNode quitMsg,
             @NonNull LeafNode quitSpecifier
     ) {
-        super(jNode, indentLev, parentTotalIndentLev);
+        super(jNode, indentLev, 0);
         this.ask = ask;
         this.err = err;
         this.quitMsg = quitMsg;
         this.quitSpecifier = quitSpecifier;
     }
 
-    private static @NonNull PromptNode create(
-            @NonNull JsonNode jNode,
+    protected PromptNode(
+            @NonNull JsonNode jNode, int indentLev, int parentTotalIndentLev,
+            @NonNull Int2ObjectMap<PromptNode> useIndentCache,
             @NonNull LeafNode ask,
             @NonNull LeafNode err,
             @NonNull LeafNode quitMsg,
             @NonNull LeafNode quitSpecifier
     ) {
-        return new PromptNode(
-                jNode, 0, 0,
-                ask, err, quitMsg, quitSpecifier
-        );
+        super(jNode, indentLev, parentTotalIndentLev, useIndentCache);
+        this.ask = ask;
+        this.err = err;
+        this.quitMsg = quitMsg;
+        this.quitSpecifier = quitSpecifier;
     }
 
     public static @NonNull PromptNode of(PromptIndentFormat promptIndentFormat, @NonNull JsonNode jNode)
             throws IllegalArgumentException
     {
+        int parentTotalIndentLev = 0; // prompt group node should have no indent
+        int indentLev = UiTextNode.getIndentLevOf(jNode);
+        int parentTotalIndentLevOfChildren = parentTotalIndentLev + indentLev;
         try {
-
             JsonNode jAsk = jNode.path("ask");
             JsonNode jErr = jNode.path("err");
             JsonNode jQuitMsg = jNode.path("quitMsg");
             JsonNode jQuitSpecifier = jNode.path("quitSpecifier");
 
-            LeafNode ask = LeafNode.of(jAsk, 0, promptIndentFormat.ask());
-            LeafNode err = LeafNode.of(jErr, 0, promptIndentFormat.err());
-            LeafNode quitMsg = LeafNode.of(jQuitMsg, 0, promptIndentFormat.quitMsg());
-            LeafNode quitSpecifier = LeafNode.of(jQuitSpecifier, 0, 0);
+            LeafNode ask = LeafNode.of(jAsk, parentTotalIndentLevOfChildren, promptIndentFormat.ask());
+            LeafNode err = LeafNode.of(jErr, parentTotalIndentLevOfChildren, promptIndentFormat.err());
+            LeafNode quitMsg = LeafNode.of(jQuitMsg, parentTotalIndentLevOfChildren, promptIndentFormat.quitMsg());
+            LeafNode quitSpecifier = LeafNode.of(jQuitSpecifier, parentTotalIndentLevOfChildren, 0);
 
             if (ask.isNull()) {
                 throw nodeTextShouldNotNull("ask", jAsk);
@@ -65,7 +68,8 @@ public class PromptNode extends ExistingNode{
                 ));
             }
 
-            return create(jNode, ask, err, quitMsg, quitSpecifier);
+            return new PromptNode(jNode, indentLev, ask, err, quitMsg, quitSpecifier);
+
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
                     String.format("node (%s) cannot be parsed into a PromptNode instance", jNode),
@@ -76,7 +80,23 @@ public class PromptNode extends ExistingNode{
     }
 
     @Override
-    public @NonNull UiTextNode path(@NonNull String propertyName) {
+    protected @NonNull PromptNode self() {
+        return this;
+    }
+
+    @Override
+    public @NonNull PromptNode immutableSetParentIndent(int newParentTotalIndentLev) {
+        return new PromptNode(
+                this.rawNode, this.indentLev, newParentTotalIndentLev, this.useIndentCache,
+                ask.useIndent(newParentTotalIndentLev),
+                err.useIndent(newParentTotalIndentLev),
+                quitMsg.useIndent(newParentTotalIndentLev),
+                quitSpecifier.useIndent(newParentTotalIndentLev)
+        );
+    }
+
+    @Override
+    public @NonNull UiTextNode<?> path(@NonNull String propertyName) {
         return switch (propertyName) {
             case ("ask") -> ask;
             case ("err") -> err;
@@ -87,37 +107,13 @@ public class PromptNode extends ExistingNode{
     }
 
     @Override
-    public @NonNull UiTextNode path(int index) {
+    public @NonNull UiTextNode<?> path(int index) {
         return MissingNode.getInstance();
     }
 
     @Override
     public @NonNull ExistingNodeType getExistingNodeType() {
         return ExistingNodeType.FIXED_BRANCH;
-    }
-
-    @Override
-    public @NonNull PromptNode useIndentOf(UiTextNode node) {
-        if (node.isMissing()) {
-            throw new IllegalArgumentException("UiTextNode node is a missing node");
-        }
-        return useIndentOf( (ExistingNode) node );
-    }
-
-    @Override
-    public @NonNull PromptNode useIndentOf(ExistingNode eNode) {
-        return useIndent(eNode.parentTotalIndentLev + eNode.indentLev);
-    }
-
-    @Override
-    public @NonNull PromptNode useIndent(int newExtraIndentLev) {
-        return new PromptNode(
-                this.rawNode, this.indentLev, newExtraIndentLev,
-                ask.useIndent(newExtraIndentLev),
-                err.useIndent(newExtraIndentLev),
-                quitMsg.useIndent(newExtraIndentLev),
-                quitSpecifier.useIndent(newExtraIndentLev)
-        );
     }
 
     public LeafNode ask() {
@@ -136,18 +132,6 @@ public class PromptNode extends ExistingNode{
         return quitSpecifier;
     }
 
-//    private static IllegalArgumentException nodeNotText(String propertyName, JsonNode correspondingJNode)
-//            throws IllegalArgumentException {
-//        throw new IllegalArgumentException(String.format(
-//                "node.%s (%s) cannot be parsed into a text", propertyName, correspondingJNode
-//        ));
-//    }
-//    private static IllegalArgumentException nodeShouldNotText(String propertyName, JsonNode correspondingJNode)
-//            throws IllegalArgumentException {
-//        throw new IllegalArgumentException(String.format(
-//                "node.%s (%s) should not be able to parsed into a text", propertyName, correspondingJNode
-//        ));
-//    }
     private static IllegalArgumentException nodeTextShouldNotNull(String propertyName, JsonNode correspondingJNode)
             throws IllegalArgumentException {
         throw new IllegalArgumentException(String.format(

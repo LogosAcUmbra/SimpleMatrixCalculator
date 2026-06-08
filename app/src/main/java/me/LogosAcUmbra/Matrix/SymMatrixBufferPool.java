@@ -17,12 +17,9 @@ public class SymMatrixBufferPool {
         int capacity = numRows * numCols;
         Stack<SymMatrixBuffer> bucket = buffers.computeIfAbsent(capacity, k -> new ObjectArrayList<>());
         if (bucket.isEmpty()) {
-            return SymMatrixBuffer.unsafeOfRowMaj(
-                    new IExpr[capacity],
-                    numRows, numCols
-            );
+            return SymMatrixBuffer.of(numRows, numCols);
         }
-        return bucket.pop().setFields(numRows, numCols, 0, numCols, 1);
+        return bucket.pop().unsafeSetFields(numRows, numCols, 0, numCols, 1, false, false);
     }
 
     /**

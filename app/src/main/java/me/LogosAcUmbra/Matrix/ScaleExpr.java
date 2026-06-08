@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static me.LogosAcUmbra.Matrix.SymMatrixParallelRouter.*;
+
 public class ScaleExpr implements ISymMatrixExpr {
 
     final int numRows;
@@ -66,7 +68,9 @@ public class ScaleExpr implements ISymMatrixExpr {
     @Override
     public void evalInto(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
         operand.evalInto(target, bufferPool);
-        evalIntoHelperSequential(target);
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert target.hasAllElemsNonNull();
+        evalIntoHelper(target);
     }
 
     @Override
@@ -74,143 +78,253 @@ public class ScaleExpr implements ISymMatrixExpr {
         return List.of(operand);
     }
 
-    private void evalIntoHelperSequential(@NonNull SymMatrixBuffer target) {
-        if (target.rowStride == 1) { // colMaj
-            for (int c = 0; c < numCols; ++c) {
-                int colIdx = c * target.colStride;
-                for (int r = 0; r < numRows; ++r) {
-                    int finalIdx = colIdx + r;
-                    target.raw[finalIdx] = F.Times(  target.raw[finalIdx], this.scalar  );
-                }
-            }
+    private void evalIntoHelper(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert target.hasAllElemsNonNull();
+        if (target.isEmpty || target.isZero) {
             return;
         }
-        // rowMaj or others
-        for (int r = 0; r < numRows; ++r) {
-            int rowIdx = r * target.rowStride;
-            for (int c = 0; c < numCols; ++c) {
-                int finalIdx = rowIdx + c * target.colStride;
-                target.raw[finalIdx] = F.Times(  target.raw[finalIdx], this.scalar  );
-            }
+        if (target.isContiguous()) {
+            evalIntoHelperContiguous(target);
+            return;
         }
-    }
-
-    private void evalIntoHelperParallel(@NonNull SymMatrixBuffer target) {
-        int numCores = Runtime.getRuntime().availableProcessors();
         if (target.colStride == 1) {
-            int numThreads = Math.min(numCores, numRows);
-            if (numThreads <= 1) {
-                evalIntoHelperSequential(target);
-                return;
-            }
-            int rowsPerChunk = (target.numRows + numThreads - 1) / numThreads; // target.numRows ceilDiv numThreads
-            try (  ExecutorService executor = Executors.newFixedThreadPool(numThreads)  ) {
-                int offset = target.offset;
-                for (int i = 0; i < numThreads-1; ++i) {
-                    int finalOffset = offset;
-                    executor.submit( () -> {
-                        // get
-                        IExpr[] localRows = new IExpr[rowsPerChunk * numCols];
-                        for (int r = 0; r < rowsPerChunk; ++r) {
-                            int rowLocalRawIdx = r * target.rowStride;
-                            System.arraycopy(target.raw, finalOffset * rowLocalRawIdx, localRows, rowLocalRawIdx, numCols);
-                        }
-                        // calc
-                        for (int r = 0; r < rowsPerChunk; ++r) {
-                            int rowRawIdx = r * target.rowStride;
-                            for (int c = 0; c < numCols; ++c) {
-
-                            }
-                        }
-                    } );
-
-                    offset += rowsPerChunk;
-                }
-            }
+            evalIntoHelperRowMaj(target);
+            return;
         }
-
-        if (target.colStride == 1) { // rowMaj
-
-            for (int r = 0; r < numRows; ++r) {
-                int rowRawIdx = r * target.rowStride;
-                executor.submit(() -> {
-                    // get
-                    IExpr[] localRow = new IExpr[numCols];
-                    System.arraycopy(target.raw, rowRawIdx, localRow, 0, numCols);
-                    // calc
-                    for (int c = 0; c < numCols; ++c) {
-                        localRow[c] = F.Times(  localRow[c], this.scalar  );
-                    }
-                    // commit
-                    System.arraycopy(localRow, 0, target.raw, rowRawIdx, numCols);
-                });
-            }
+        if (target.rowStride == 1) {
+            evalIntoHelperColMaj(target);
+            return;
         }
-        if (target.rowStride == 1) { // colMaj
-            for (int c = 0; c < numCols; ++c) {
-                int colIdx = c * target.colStride;
-                executor.submit(() -> {
-                    // get
-                    IExpr[] localCol = new IExpr[numRows];
-                    System.arraycopy(target.raw, colIdx, localCol, 0, numRows);
-                    // calc
-                    for (int r = 0; r < numRows; ++r) {
-                        localCol[r] = F.Times(  localCol[r], this.scalar  );
-                    }
-                    // commit
-                    System.arraycopy(localCol, 0, target.raw, colIdx, numRows);
-                });
-            }
-            // executor.close(); return;
-
-        } else { // not rowMaj or colMaj, still r-c loop order
-            for (int r = 0; r < numRows; ++r) {
-                int rowIdx = r * target.rowStride;
-                executor.submit(() -> {
-                    // how to do?
-                });
-            }
-            // executor.close(); return;
-        }
-
+        evalIntoHelperFragmented(target);
     }
-    private void evalIntoHelperParallelContiguous(@NonNull SymMatrixBuffer target) {
-        assert (target.colStride == 1 && target.rowStride == target.numCols
-                || target.rowStride == 1 && target.colStride == target.numRows
+
+    private void evalIntoHelperContiguous(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.isContiguous();
+
+        final int numElems = numRows * numCols;
+
+        int numCores = calSuitableNumCoresCont(
+                Runtime.getRuntime().availableProcessors(),
+                numElems
         );
-        // assert, all elements in target.raw are NonNull
+        if (numCores == 1) {
+            evalIntoHelperContiguousSequential(target);
+            return;
+        }
 
-        int numCores = Runtime.getRuntime().availableProcessors();
-        int size = target.numRows * target.numCols;
-        int numElemsPerCore = (size + numCores - 1) / numCores; // size ceilDiv numCores
-        int numElemsLastCore = size - (numCores - 1) * numElemsPerCore;
+        int numElemsPerCore = (numElems + numCores - 1) / numCores; // numElems ceilDiv numCores
+        int numElemsLastCore = numElems - (numCores - 1) * numElemsPerCore;
         try (  ExecutorService executor = Executors.newFixedThreadPool(numCores)  ) {
-            int offset = target.offset;
+            int begin = target.offset;
+            int end;
             for (int i = 0; i < numCores - 1; ++i) {
-                final int finalOffset = offset;
+                end = begin + numElemsPerCore;
+
+                final int finalBegin = begin;
+                final int finalEnd = end;
                 executor.submit( () -> {
-                    mapScaleTo(target.raw, finalOffset, finalOffset + numElemsPerCore);
+                    mapScaleToArr(target.raw, finalBegin, finalEnd);
                 });
 
-                offset += numElemsPerCore;
+                begin = end;
             }
-            final int finalOffset = offset;
-            executor.submit( () -> mapScaleTo(target.raw, finalOffset, finalOffset + numElemsLastCore));
+            final int finalBegin = begin;
+            executor.submit( () -> mapScaleToArr(target.raw, finalBegin, finalBegin + numElemsLastCore));
         }
     }
 
+    private void evalIntoHelperRowMaj(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.colStride == 1;
+
+        int numCores = calSuitableNumCoresRowMaj(
+                Runtime.getRuntime().availableProcessors(),
+                numRows, numCols
+        );
+        if (numCores == 1) {
+            evalIntoHelperRowMajSequential(target);
+            return;
+        }
+
+        rowMajHelper(target, numCores, numRows, numCols, target.rowStride);
+    }
+
+    private void evalIntoHelperColMaj(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.rowStride == 1;
+
+        int numCores = calSuitableNumCoresColMaj(
+                Runtime.getRuntime().availableProcessors(),
+                numRows, numCols
+        );
+        if (numCores == 1) {
+            evalIntoHelperColMajSequential(target);
+            return;
+        }
+
+        // reuse rowMaj logic with numRows and numCols, rowStride and colStride swapped
+        rowMajHelper(target, numCores, numCols, numRows, target.colStride);
+    }
+
+    private void evalIntoHelperFragmented(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+
+        int numElems = numRows * numCols;
+        int numCores = calSuitableNumCoresFragmented(
+                Runtime.getRuntime().availableProcessors(),
+                numElems
+        );
+        if (numCores == 1) {
+            evalIntoHelperFragmentedSequential(target);
+            return;
+        }
+        int numElemsPerCore = (numElems + numCores - 1) / numCores;
+        int numElemsLastCore = numElems - numElemsPerCore * (numCores - 1);
+
+        try (  ExecutorService executor = Executors.newFixedThreadPool(numCores)  ) {
+            int begin = 0;
+            int nextBegin;
+            for (int i = 0; i < numCores - 1; ++i) {
+                nextBegin = begin + numElemsPerCore;
+
+                final int beginR = begin / numCols;
+                final int beginC = begin % numCols;
+                executor.submit( () -> fragmentedHelperEachCore(target, beginR, beginC, numElemsPerCore) );
+                begin = nextBegin;
+            }
+            final int beginR = begin / numCols;
+            final int beginC = begin % numCols;
+            executor.submit( () -> fragmentedHelperEachCore(target, beginR, beginC, numElemsLastCore) );
+        }
+    }
+
+    private void evalIntoHelperContiguousSequential(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.isContiguous();
+
+        mapScaleToArr(target.raw, target.offset, target.offset + target.numRows * target.numCols);
+    }
+    private void evalIntoHelperRowMajSequential(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.colStride == 1;
+
+        for (int r = 0; r < numRows; ++r) {
+            int rowRawIdx = target.offset + r * target.rowStride;
+            mapScaleToArr(target.raw, rowRawIdx, rowRawIdx + target.numCols);
+        }
+    }
+    private void evalIntoHelperColMajSequential(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+        assert target.rowStride == 1;
+
+        for (int c = 0; c < numCols; ++c) {
+            int colRawIdx = target.offset + c * target.colStride;
+            mapScaleToArr(target.raw, colRawIdx, colRawIdx + numRows);
+        }
+    }
+    private void evalIntoHelperFragmentedSequential(@NonNull SymMatrixBuffer target) {
+        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert !target.isEmpty && !target.isZero;
+        assert target.hasAllElemsNonNull();
+
+        fragmentedHelperEachCore(target, 0, 0, numRows * numCols);
+    }
+
+    private void rowMajHelper(@NonNull SymMatrixBuffer target, int numCores, int numRows, int numCols, int rowStride) {
+
+        int numRowsPerCore = (numRows + numCores - 1) / numCores;
+        int numRowsLastCore = numRows - numRowsPerCore * (numCores - 1);
+        try (  ExecutorService executor = Executors.newFixedThreadPool(numCores)  ) {
+            int beginRow = 0;
+            int nextBeginRow;
+            for (int i = 0; i < numCores - 1; ++i) {
+                nextBeginRow = beginRow + numRowsPerCore;
+
+                final int finalBeginRow = beginRow;
+                final int finalEndRow = nextBeginRow;
+                executor.submit( () -> mapScaleToRows(target.raw, target.offset, finalBeginRow, finalEndRow, numCols, rowStride) );
+
+                beginRow = nextBeginRow;
+            }
+            final int finalBeginRow = beginRow;
+            executor.submit( () -> mapScaleToRows(target.raw, target.offset, finalBeginRow, finalBeginRow + numRowsLastCore, numCols, rowStride) );
+        }
+    }
+
+    private void fragmentedHelperEachCore(@NonNull SymMatrixBuffer target, int beginR, int beginC, int numElemsOfCore) {
+        // cache
+        int rowStride = target.rowStride, colStride = target.colStride;
+        IExpr [] raw = target.raw;
+
+        int rowRawIdx = target.offset + beginR * rowStride;
+        int colRawOffset = beginC * colStride;
+        int colRawOffsetEnd = numCols * colStride;
+        for (int j = 0; j < numElemsOfCore; ++j) {
+            int idx = rowRawIdx + colRawOffset;
+            raw[idx] = F.Times(  raw[idx], scalar  );
+            colRawOffset += colStride;
+            if (colRawOffset == colRawOffsetEnd) { // prevent divide operations
+                colRawOffset = 0;
+                rowRawIdx += rowStride;
+            }
+        }
+    }
+
+    private void mapScaleToRows(
+            IExpr @NonNull [] arr,
+            int offset, int beginRow, int endRow,
+            int numElemsPerRow, int rowStride
+    ) {
+        for (int i = offset + beginRow * rowStride; i != offset + endRow * rowStride; i += rowStride) {
+            mapScaleToArrReversible(arr, i, i + numElemsPerRow);
+        }
+    }
     /**
      * scale each element in range [beginIdx, endIdx) of the given array
-     * @param arr the array
+     * @param arr the array (requires non-null for all elements in the given range)
      * @param beginIdx the start-from-index, included
      * @param endIdx the to-index, not included
      */
-    private void mapScaleTo(
-            @NonNull IExpr @NonNull [] arr,
+    private void mapScaleToArr(
+            IExpr @NonNull [] arr,
             int beginIdx, int endIdx
     ) {
-        for (int i = beginIdx; i < endIdx; ++i) {
+        for (int i = beginIdx; i != endIdx; ++i) {
             arr[i] = F.Times(  arr[i], this.scalar  );
         }
     }
+    /**
+     * scale each element in range [beginIdx, endIdx) of the given array <br>
+     * endIdx can be > beginIdx
+     * @param arr the array (requires non-null for all elements in the given range)
+     * @param beginIdx the start-from-index, included
+     * @param endIdx the to-index, not included
+     */
+    private void mapScaleToArrReversible(
+            IExpr @NonNull [] arr,
+            int beginIdx, int endIdx
+    ) {
+        int increment = (beginIdx < endIdx) ? 1 : -1;
+        for (int i = beginIdx; i != endIdx; i += increment) {
+            arr[i] = F.Times(  arr[i], this.scalar  );
+        }
+    }
+
+
 }

@@ -1,8 +1,7 @@
 package me.LogosAcUmbra.Matrix;
 
-import org.matheclipse.core.expression.F;
-
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.matheclipse.core.interfaces.IAST;
 import org.matheclipse.core.interfaces.IExpr;
@@ -10,12 +9,12 @@ import org.matheclipse.core.interfaces.IExpr;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
+/**
+ * don't deal with negative strides for now
+ */
 public class SymMatrix implements ISymMatrix, ISymMatrixExpr {
 
-    protected static final int useParallelThreshold = 64;
     protected static final ThreadLocal<ExprEvaluator> EVALUATOR
             = ThreadLocal.withInitial(ExprEvaluator::new);
 
@@ -23,27 +22,46 @@ public class SymMatrix implements ISymMatrix, ISymMatrixExpr {
     protected final int numRows, numCols;
     protected final int offset, rowStride, colStride;
 
+    protected final boolean isZero, isEmpty;
 
-    protected final static IExpr[] ZERO_MAT_RAW = new IExpr[0];
-    protected final static SymMatrix MAT0 = new SymMatrix(
-            ZERO_MAT_RAW, 0, 0, 0, 0, 0
-    );
+    protected final static IExpr[] EMPTY_MAT_RAW = new IExpr[0];
 
     SymMatrix(
             @NonNull IExpr @NonNull [] raw,
             int numRows, int numCols,
-            int offset, int rowStride, int colStride
+            int offset, int rowStride, int colStride,
+            boolean isZero, boolean isEmpty
     ) {
         this.raw = raw;
         this.numRows = numRows;
         this.numCols = numCols;
+
         this.offset = offset;
         this.rowStride = rowStride;
         this.colStride = colStride;
+
+        this.isZero = isZero;
+        this.isEmpty = isEmpty;
     }
 
     public static SymMatrix zeroOfSize(int numRows, int numCols) {
-        return new SymMatrix(ZERO_MAT_RAW, numRows, numCols, 0, numCols, 1);
+        return new SymMatrix(  EMPTY_MAT_RAW, numRows, numCols, 0, numCols, 1, true, false  );
+    }
+
+    public static SymMatrix empty() {
+        return new SymMatrix(  EMPTY_MAT_RAW, 0, 0, 0, 0, 0, false, true  );
+    }
+
+    public static SymMatrix emptyOfSize(int numRows, int numCols) {
+        return new SymMatrix(  EMPTY_MAT_RAW, numRows, numCols, 0, 0, 0, false, true  );
+    }
+
+    public static SymMatrixBuffer of(int numRows, int numCols, @Nullable IExpr val) {
+        IExpr[] arr = new IExpr[numRows * numCols];
+        Arrays.fill(arr, val);
+        return new SymMatrixBuffer(
+                arr, numRows, numCols,
+                0, numCols, 1, false, true);
     }
 
     public static Optional<SymMatrix> optOf(@NonNull IExpr mat) {
@@ -64,13 +82,13 @@ public class SymMatrix implements ISymMatrix, ISymMatrixExpr {
                 matInArr[r * numCols + c] = rowAST.get(c + 1); // same as above
             }
         }
-        return Optional.of(unsafeOfRowMaj(matInArr, numRows, numCols));
+        return Optional.of(unsafeOfContRowMaj(matInArr, numRows, numCols));
     }
 
     public static Optional<SymMatrix> optOf(@NonNull IExpr @NonNull [] @NonNull [] mat) {
         int numRows = mat.length;
         if (numRows == 0) {
-            return Optional.of(MAT0);
+            return Optional.of(empty());
         }
         int numCols = mat[0].length;
         for (int r = 1; r < numRows; ++r) {
@@ -82,20 +100,23 @@ public class SymMatrix implements ISymMatrix, ISymMatrixExpr {
         for (int r = 0; r < numRows; ++r) {
             System.arraycopy(mat[r], 0, matInArr, r * numRows, numCols);
         }
-        return Optional.of(unsafeOfRowMaj(matInArr, numRows, numCols));
+        return Optional.of(unsafeOfContRowMaj(matInArr, numRows, numCols));
     }
 
-    protected static SymMatrix unsafeOfRowMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
+
+    protected static SymMatrix unsafeOfContRowMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
         return new SymMatrix(
                 mat,
                 numRows, numCols,
-                0, numCols, 1);
+                0, numCols, 1,
+                false, false);
     }
-    protected static SymMatrix unsafeOfColMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
+    protected static SymMatrix unsafeOfContColMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
         return new SymMatrix(
                 mat,
                 numRows, numCols,
-                0, 1, numRows);
+                0, 1, numRows,
+                false, false);
     }
 
     public @NonNull IExpr get(int rowIdx, int colIdx) {
@@ -178,12 +199,19 @@ public class SymMatrix implements ISymMatrix, ISymMatrixExpr {
                 raw,
                 numCols, numRows, // swap
                 offset,
-                colStride, rowStride // swap
+                colStride, rowStride, // swap
+                isZero, isEmpty
         );
     }
 
+    @Override
     public boolean isZero() {
-        return this.raw == ZERO_MAT_RAW;
+        return isZero;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return isEmpty;
     }
 
 //    public SymMatrix plus(@NonNull SymMatrix other) {

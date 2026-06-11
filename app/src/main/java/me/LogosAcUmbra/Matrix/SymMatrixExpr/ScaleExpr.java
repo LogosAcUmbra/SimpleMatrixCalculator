@@ -1,6 +1,7 @@
 package me.LogosAcUmbra.Matrix;
 
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.expression.F;
 import org.matheclipse.core.interfaces.IExpr;
 
@@ -10,28 +11,39 @@ import java.util.concurrent.Executors;
 
 import static me.LogosAcUmbra.Matrix.SymMatrixParallelRouter.*;
 
-public class ScaleExpr implements ISymMatrixExpr {
+public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
 
-    final int numRows;
-    final int numCols;
-    final @NonNull ISymMatrixExpr operand;
+    @Nullable ISymMatrixExpr parent;
+    int numRows;
+    int numCols;
+    @NonNull ISymMatrixExpr operand;
     @NonNull IExpr scalar;
 
-    ScaleExpr(@NonNull ISymMatrixExpr operand, @NonNull IExpr scalar) {
+    private ScaleExpr(@NonNull ISymMatrixExpr operand, @NonNull IExpr scalar) {
         this.numRows = operand.getNumRows();
         this.numCols = operand.getNumCols();
         this.operand = operand;
         this.scalar = scalar;
     }
 
-    static ScaleExpr of(ISymMatrixExpr expr) {
-        assert !(expr instanceof ScaleExpr);
-        return new ScaleExpr(expr, F.C1);
+    /**
+     * create a ScaleExpr instance of the given operand with scalar = {@link F#C1}
+     * @param operand the operand, recommended not to be Self ({@link ScaleExpr})
+     * @return the resultant instance
+     */
+    public static ScaleExpr of(@NonNull ISymMatrixExpr operand) {
+        assert !(operand instanceof ScaleExpr);
+        return new ScaleExpr(operand, F.C1);
     }
 
-    static ScaleExpr of(ISymMatrixExpr expr, IExpr scalar) {
-        assert !(expr instanceof ScaleExpr);
-        return new ScaleExpr(expr, scalar);
+    /**
+     * create a ScaleExpr instance of the given operand with the given scalar
+     * @param operand the operand, recommended not to be Self ({@link ScaleExpr})
+     * @return the resultant instance
+     */
+    public static ScaleExpr of(@NonNull ISymMatrixExpr operand, IExpr scalar) {
+        assert !(operand instanceof ScaleExpr);
+        return new ScaleExpr(operand, scalar);
     }
 
     @Override
@@ -45,13 +57,44 @@ public class ScaleExpr implements ISymMatrixExpr {
     }
 
     @Override
-    public @NonNull ISymMatrixExpr plus(@NonNull ISymMatrixExpr expr) {
-        return SumExpr.of(this, expr);
+    public @NonNull List<ISymMatrixExpr> getOperands() {
+        return List.of(operand);
     }
 
     @Override
-    public @NonNull ISymMatrixExpr minus(@NonNull ISymMatrixExpr expr) {
-        return SumExpr.ofMinus(this, expr);
+    public @NonNull ISymMatrixExpr getOperandRef() {
+        return operand;
+    }
+
+    public @NonNull IExpr getScalar() {
+        return scalar;
+    }
+
+    @Override
+    public @NonNull ScaleExpr setOperand(@NonNull ISymMatrixExpr operand) {
+        this.operand = operand;
+        return this;
+    }
+
+    @Override
+    public @Nullable ISymMatrixExpr getParent() {
+        return parent;
+    }
+
+    @Override
+    public @NonNull ScaleExpr setParent(@NonNull ISymMatrixExpr parent) {
+        this.parent = parent;
+        return this;
+    }
+
+    public @NonNull ScaleExpr setScalar(@NonNull IExpr scalar) {
+        this.scalar = scalar;
+        return this;
+    }
+
+    @Override
+    public @NonNull ISymMatrixExpr negate() {
+        return NegExpr.of(operand);
     }
 
     @Override
@@ -61,49 +104,57 @@ public class ScaleExpr implements ISymMatrixExpr {
     }
 
     @Override
-    public @NonNull ISymMatrixExpr times(@NonNull ISymMatrixExpr expr) {
-        return MulExpr.of(this, expr);
-    }
-
-    @Override
-    public void evalInto(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
-        operand.evalInto(target, bufferPool);
+    public void computeIntoBuffer(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
+        ((ISymMatrixAdvancedExpr) operand).computeIntoBuffer(target, bufferPool);
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert target.hasAllElemsNonNull();
-        evalIntoHelper(target);
+        computeIntoHelper(target);
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
-        return List.of(operand);
+    public @NonNull SymMatrixBuffer computeToBuffer(@NonNull SymMatrixBufferPool pool) {
+        // TODO
+        throw new UnsupportedOperationException("Not implemented");
     }
 
-    private void evalIntoHelper(@NonNull SymMatrixBuffer target) {
+    private static void ensureNotSelf(@NonNull ISymMatrixExpr operand) {
+        if (operand instanceof ScaleExpr) {
+            throw new IllegalArgumentException(
+                    "Strange Wrapping: A ScaleExpr instance should not have operand(" + operand + ") in type of Self (ScaleExpr)."
+            );
+        }
+    }
+
+
+
+
+
+    private void computeIntoHelper(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert target.hasAllElemsNonNull();
         if (target.isEmpty || target.isZero) {
             return;
         }
-        if (target.isContiguous()) {
-            evalIntoHelperContiguous(target);
+        if (target.isContAnyMaj()) {
+            computeIntoHelperContiguous(target);
             return;
         }
         if (target.colStride == 1) {
-            evalIntoHelperRowMaj(target);
+            computeIntoHelperRowMaj(target);
             return;
         }
         if (target.rowStride == 1) {
-            evalIntoHelperColMaj(target);
+            computeIntoHelperColMaj(target);
             return;
         }
-        evalIntoHelperFragmented(target);
+        computeIntoHelperFragmented(target);
     }
 
-    private void evalIntoHelperContiguous(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperContiguous(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
-        assert target.isContiguous();
+        assert target.isContAnyMaj();
 
         final int numElems = numRows * numCols;
 
@@ -112,7 +163,7 @@ public class ScaleExpr implements ISymMatrixExpr {
                 numElems
         );
         if (numCores == 1) {
-            evalIntoHelperContiguousSequential(target);
+            computeIntoHelperContiguousSequential(target);
             return;
         }
 
@@ -137,7 +188,7 @@ public class ScaleExpr implements ISymMatrixExpr {
         }
     }
 
-    private void evalIntoHelperRowMaj(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperRowMaj(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
@@ -148,14 +199,14 @@ public class ScaleExpr implements ISymMatrixExpr {
                 numRows, numCols
         );
         if (numCores == 1) {
-            evalIntoHelperRowMajSequential(target);
+            computeIntoHelperRowMajSequential(target);
             return;
         }
 
         rowMajHelper(target, numCores, numRows, numCols, target.rowStride);
     }
 
-    private void evalIntoHelperColMaj(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperColMaj(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
@@ -166,7 +217,7 @@ public class ScaleExpr implements ISymMatrixExpr {
                 numRows, numCols
         );
         if (numCores == 1) {
-            evalIntoHelperColMajSequential(target);
+            computeIntoHelperColMajSequential(target);
             return;
         }
 
@@ -174,7 +225,7 @@ public class ScaleExpr implements ISymMatrixExpr {
         rowMajHelper(target, numCores, numCols, numRows, target.colStride);
     }
 
-    private void evalIntoHelperFragmented(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperFragmented(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
@@ -185,7 +236,7 @@ public class ScaleExpr implements ISymMatrixExpr {
                 numElems
         );
         if (numCores == 1) {
-            evalIntoHelperFragmentedSequential(target);
+            computeIntoHelperFragmentedSequential(target);
             return;
         }
         int numElemsPerCore = (numElems + numCores - 1) / numCores;
@@ -208,15 +259,15 @@ public class ScaleExpr implements ISymMatrixExpr {
         }
     }
 
-    private void evalIntoHelperContiguousSequential(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperContiguousSequential(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
-        assert target.isContiguous();
+        assert target.isContAnyMaj();
 
         mapScaleToArr(target.raw, target.offset, target.offset + target.numRows * target.numCols);
     }
-    private void evalIntoHelperRowMajSequential(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperRowMajSequential(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
@@ -227,7 +278,7 @@ public class ScaleExpr implements ISymMatrixExpr {
             mapScaleToArr(target.raw, rowRawIdx, rowRawIdx + target.numCols);
         }
     }
-    private void evalIntoHelperColMajSequential(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperColMajSequential(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();
@@ -238,7 +289,7 @@ public class ScaleExpr implements ISymMatrixExpr {
             mapScaleToArr(target.raw, colRawIdx, colRawIdx + numRows);
         }
     }
-    private void evalIntoHelperFragmentedSequential(@NonNull SymMatrixBuffer target) {
+    private void computeIntoHelperFragmentedSequential(@NonNull SymMatrixBuffer target) {
         assert this.numRows == target.numRows && this.numCols == target.numCols;
         assert !target.isEmpty && !target.isZero;
         assert target.hasAllElemsNonNull();

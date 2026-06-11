@@ -4,17 +4,16 @@ package me.LogosAcUmbra.Matrix.OperandTree;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr;
+import me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixExpr;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 
 /**
- * <p><b>Logical Immutability:</b>
- * This class guarantees <i>logical immutability</i>. Although internal state optimization
- * (path compression) occurs via {@link #getOperandsAndFlatten()}, the effective value,
- * order, and elements of this list can never be altered after construction.
- *
  * <p><b>Method Guidance:</b>
  * <ul>
  *   <li>Use {@link #getOperandsAndFlatten()} at major execution boundaries (e.g., prior to
@@ -53,6 +52,10 @@ public class OperandList implements IOperandList {
         return new OperandList(ROOT, operands, operands.size());
     }
 
+    public static OperandList of(@NonNull ISymMatrixAdvancedExpr... operands) {
+        return new OperandList(ROOT, ObjectArrayList.of(operands), operands.length);
+    }
+
     @Override
     public int size() {
         return numOperands;
@@ -62,29 +65,29 @@ public class OperandList implements IOperandList {
     }
 
     @Override
-    public @NonNull OperandList add(@NonNull ISymMatrixAdvancedExpr arg) {
+    public @NonNull OperandList with(@NonNull ISymMatrixAdvancedExpr arg) {
         return new OperandList(this, ObjectArrayList.of(arg), numOperands + 1);
     }
 
     @Override
-    public @NonNull OperandList addAll(@NonNull ISymMatrixAdvancedExpr... args) {
+    public @NonNull OperandList withAll(@NonNull ISymMatrixAdvancedExpr... args) {
         if (args.length == 0) {  return this;  }
         return new OperandList(this, ObjectArrayList.of(args), numOperands + args.length);
     }
 
     @Override
-    public @NonNull OperandList addAll(@NonNull ObjectArrayList<@NonNull ISymMatrixAdvancedExpr> objArrList) {
+    public @NonNull OperandList withAll(@NonNull ObjectArrayList<@NonNull ISymMatrixAdvancedExpr> objArrList) {
         if (objArrList.isEmpty()) {  return this;  }
         return new OperandList(this, objArrList, numOperands + objArrList.size());
     }
 
     @Override
-    public @NonNull IOperandList addAll(@NonNull IOperandList other) {
+    public @NonNull IOperandList withAll(@NonNull IOperandList other) {
         if (other == ROOT) {  return this;  }
         return new OperandList(this, other.getOperandsAndFlatten(), numOperands + other.size());
     }
 
-    public OperandList addAll(@NonNull OperandList other) {
+    public OperandList withAll(@NonNull OperandList other) {
         if (other == ROOT) {  return this;  }
         return new OperandList(this, other.getOperandsAndFlatten(), numOperands + other.numOperands);
     }
@@ -141,6 +144,87 @@ public class OperandList implements IOperandList {
         return operands;
     }
 
+    @Override
+    public @NonNull IOperandList unsafeSetElem(int index, @NonNull ISymMatrixAdvancedExpr exprWithSameVal) {
+        Objects.checkIndex(index, numOperands);
+        var idxAndNode = findNodeHavingIdx(index);
+        int idx = idxAndNode.leftInt();
+        var node = idxAndNode.right();
+        node.segment.set(idx, exprWithSameVal);
+        return this;
+    }
+
+    @Override
+    public @NonNull List<? extends @NonNull ISymMatrixExpr> getOperandsNotAdvanced() {
+        return Collections.unmodifiableList(  getOperandsAndFlatten()  );
+    }
+
+    public static class Builder {
+
+        private @NonNull OperandList prev;
+        private @NonNull ObjectArrayList<@NonNull ISymMatrixAdvancedExpr> segment;
+
+        public @NonNull OperandList build() {
+            return new OperandList(prev, segment, prev.numOperands + segment.size());
+        }
+        public Builder(int capacity) {
+            this.prev = ROOT;
+            this.segment = new ObjectArrayList<>(capacity);
+        }
+        public Builder(@NonNull OperandList prev, int capacity) {
+            this.prev = prev;
+            this.segment = new ObjectArrayList<>(capacity);
+        }
+        public static @NonNull Builder of(int capacity) {
+            return new Builder(capacity);
+        }
+        public @NonNull Builder setPrev(@NonNull OperandList prev) {
+            this.prev = prev;
+            return this;
+        }
+        public @NonNull Builder setSegment(@NonNull ObjectArrayList<@NonNull ISymMatrixAdvancedExpr> segment) {
+            this.segment = segment;
+            return this;
+        }
+        public @NonNull Builder add(@NonNull ISymMatrixAdvancedExpr expr) {
+            segment.add(expr);
+            return this;
+        }
+        public @NonNull Builder add(int index, @NonNull ISymMatrixAdvancedExpr expr) {
+            segment.add(index, expr);
+            return this;
+        }
+        public @NonNull Builder addAll(IOperandList operandList) {
+            segment.addAll(operandList.getOperandsAndFlatten());
+            return this;
+        }
+        public @NonNull Builder addAll(int index, IOperandList operandList) {
+            segment.addAll(index, operandList.getOperandsAndFlatten());
+            return this;
+        }
+        public @NonNull Builder addAll(int index, final Collection<? extends ISymMatrixAdvancedExpr> collection) {
+            segment.addAll(index, collection);
+            return this;
+        }
+        public @NonNull Builder addAll(final Collection<? extends ISymMatrixAdvancedExpr> collection) {
+            segment.addAll(collection);
+            return this;
+        }
+        public @NonNull Builder set(int idx, @NonNull ISymMatrixAdvancedExpr expr) {
+            segment.set(idx, expr);
+            return this;
+        }
+        public @NonNull Builder remove(int idx) {
+            segment.remove(idx);
+            return this;
+        }
+        public @NonNull Builder remove(@NonNull ISymMatrixAdvancedExpr expr) {
+            segment.remove(expr);
+            return this;
+        }
+    }
+
+
     private boolean isIdxInThisSeg(int index) {
         return index >= this.prev.numOperands;
     }
@@ -154,7 +238,7 @@ public class OperandList implements IOperandList {
         if (idxOfToNodeSeg == 0) {
             return node.prev;
         }
-        return node.prev.addAll(  new ObjectArrayList<>(node.segment.subList(0, idxOfToNodeSeg))  );
+        return node.prev.withAll(  new ObjectArrayList<>(node.segment.subList(0, idxOfToNodeSeg))  );
     }
 
     private @NonNull OperandList subListHelperFromTgtWithTo(int from, IntObjectPair<OperandList> toIdxAndNode) {

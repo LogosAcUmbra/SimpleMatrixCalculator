@@ -9,11 +9,11 @@ public sealed interface IOperandTree extends IOperandList permits OperandTreeLea
 
     @Override
     @NonNull
-    IOperandTree add(@NonNull ISymMatrixAdvancedExpr expr);
+    IOperandTree with(@NonNull ISymMatrixAdvancedExpr expr);
     @Override
     @NonNull
-    IOperandTree addAll(@NonNull ISymMatrixAdvancedExpr... args);
+    IOperandTree withAll(@NonNull ISymMatrixAdvancedExpr... args);
 
-    IOperandTree addAll(@NonNull IOperandTree other);
+    IOperandTree withAll(@NonNull IOperandTree other);
 
 }

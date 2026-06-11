@@ -26,7 +26,7 @@ public interface ISymMatrixExpr extends IMatrixBase {
         return MulExpr.of(this, expr); // recursive dependency marked
     }
 
-    @NonNull IOperandList getOperands();
+    @NonNull List<? extends @NonNull ISymMatrixExpr> getOperands();
 
 //    @NonNull SymMatrix compute();
 //

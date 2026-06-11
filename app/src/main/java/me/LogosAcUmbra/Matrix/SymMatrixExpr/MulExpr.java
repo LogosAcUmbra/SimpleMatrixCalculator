@@ -1,28 +1,25 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import me.LogosAcUmbra.Matrix.OperandTree.IOperandList;
+import me.LogosAcUmbra.Matrix.OperandTree.OperandList;
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
-import org.matheclipse.core.interfaces.IExpr;
 
-import java.util.Collections;
 import java.util.List;
 
-import static me.LogosAcUmbra.Matrix.ISymMatrixAdvancedExpr.ensureIsAdvanced;
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
 
 public class MulExpr implements IManyOperandExpr {
 
-    @Nullable ISymMatrixExpr parent;
     final int numRows;
     final int numCols;
-    final @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> operands;
-    final int numOperands;
+    @NonNull IOperandList operands;
 
-    MulExpr(int numRows, int numCols, @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> operands, int numOperands) {
+    MulExpr(int numRows, int numCols, @NonNull IOperandList operands) {
         this.numRows = numRows;
         this.numCols = numCols;
         this.operands = operands;
-        this.numOperands = numOperands;
     }
 
     public static MulExpr of(@NonNull ISymMatrixExpr expr1, @NonNull ISymMatrixExpr expr2) {
@@ -36,12 +33,14 @@ public class MulExpr implements IManyOperandExpr {
         int numCols = advExpr2.getNumCols();
         if (advExpr2 instanceof MulExpr mulExpr) {
             int size = mulExpr.operands.size();
-            ObjectArrayList<ISymMatrixAdvancedExpr> operands = new ObjectArrayList<>(1 + size);
-            operands.add(advExpr1);
-            operands.addAll(mulExpr.operands);
-            return new MulExpr(numRows, numCols, operands, operands.size());
+            IOperandList operands
+                    = new OperandList.Builder(1 + size)
+                    .add(advExpr1)
+                    .addAll(mulExpr.operands.getOperands())
+                    .build();
+            return new MulExpr(numRows, numCols, operands);
         }
-        return new MulExpr(numRows, numCols, ObjectArrayList.of(advExpr1, advExpr2), 2);
+        return new MulExpr(numRows, numCols, OperandList.of(advExpr1, advExpr2));
     }
 
     @Override
@@ -55,31 +54,20 @@ public class MulExpr implements IManyOperandExpr {
 
     @Override
     public @NonNull ISymMatrixExpr times(@NonNull ISymMatrixExpr expr) {
-        if (this.numCols != expr.getNumRows()) {
-            throw illegalMulDimension(this, expr, "this", "expr");
+        var advExpr = ensureIsAdvanced(expr);
+        if (this.numCols != advExpr.getNumRows()) {
+            throw illegalMulDimension(this, advExpr, "this", "expr");
         }
-        numCols = expr.getNumCols();
-        operands.add(expr);
-        return this;
+        return new MulExpr(numRows, advExpr.getNumCols(), operands.with(advExpr));
     }
 
     @Override
-    public void computeInto(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
-
+    public @NonNull List<? extends @NonNull ISymMatrixExpr> getOperands() {
+        return operands.getOperandsNotAdvanced();
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
-        return operands;
-    }
-
-    /**
-     * UNSAFE <br>
-     * return the direct reference to the internal ArrayList for storing operands
-     *
-     * @return the reference to the internal ArrayList for storing operands
-     */
-    public @NonNull ObjectArrayList<ISymMatrixExpr> unsafeGetOperands() {
+    public @NonNull IOperandList getOperandsRef() {
         return operands;
     }
 
@@ -92,18 +80,8 @@ public class MulExpr implements IManyOperandExpr {
     }
 
     @Override
-    public @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> getOperandsRef() {
-        return Collections.unmodifiableList(operands.subList(0, numOperands));
-    }
-
-    @Override
-    public @Nullable ISymMatrixExpr getParent() {
-        return parent;
-    }
-
-    @Override
-    public @NonNull MulExpr setParent(@NonNull ISymMatrixExpr parent) {
-        this.parent = parent;
+    public @NonNull MulExpr unsafeSetOperands(@NonNull IOperandList operandsWithSameVal) {
+        this.operands = operandsWithSameVal;
         return this;
     }
 

@@ -1,25 +1,29 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
+
+
 public class NegExpr implements IOneOperandExpr {
 
-    private @Nullable ISymMatrixExpr parent;
     private final int numRows;
     private final int numCols;
-    private final @NonNull ISymMatrixExpr operand;
+    private @NonNull ISymMatrixAdvancedExpr operand;
 
-    private NegExpr(@NonNull ISymMatrixExpr operand) {
+    private NegExpr(@NonNull ISymMatrixAdvancedExpr operand) {
         this.numRows = operand.getNumRows();
         this.numCols = operand.getNumCols();
         this.operand = operand;
     }
 
     public static NegExpr of(@NonNull ISymMatrixExpr operand) {
-        return new NegExpr(operand);
+        ISymMatrixAdvancedExpr advOperand = ensureIsAdvanced(operand);
+        return new NegExpr(advOperand);
     }
 
     @Override
@@ -45,24 +49,14 @@ public class NegExpr implements IOneOperandExpr {
 
 
     @Override
-    public @Nullable ISymMatrixExpr getParent() {
-        return parent;
-    }
-
-    @Override
-    public @NonNull NegExpr setParent(@NonNull ISymMatrixExpr parent) {
-        this.parent = parent;
-        return this;
-    }
-
-    @Override
-    public @NonNull ISymMatrixExpr getOperandRef() {
+    public @NonNull ISymMatrixAdvancedExpr getOperandRef() {
         return operand;
     }
 
     @Override
-    public @NonNull NegExpr immutSetOperand(@NonNull ISymMatrixExpr operand) {
-        return new NegExpr(operand);
+    public @NonNull NegExpr unsafeSetOperand(@NonNull ISymMatrixAdvancedExpr operandWithSameVal) {
+        this.operand = operandWithSameVal;
+        return this;
     }
 
     @Override

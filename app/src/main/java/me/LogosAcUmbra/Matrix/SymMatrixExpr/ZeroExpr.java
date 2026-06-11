@@ -1,11 +1,13 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
 import org.matheclipse.core.expression.F;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class ZeroExpr implements ISymMatrixExpr {
+public class ZeroExpr implements ISymMatrixAdvancedExpr {
     final int numRows;
     final int numCols;
 
@@ -34,10 +36,10 @@ public class ZeroExpr implements ISymMatrixExpr {
     }
 
     @Override
-    public void computeInto(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool pool) {
+    public void computeIntoBuffer(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool pool) {
         assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
         if (target.isContAnyMaj()) {
-            Arrays.fill(target.raw, target.offset, target.offset + numRows * numCols, F.C0);
+            Arrays.fill(target.unsafeGetRaw(), target.getOffset(), target.getOffset() + numRows * numCols, F.C0);
             return;
         }
         if (target.isRowMaj()) {
@@ -49,26 +51,26 @@ public class ZeroExpr implements ISymMatrixExpr {
             return;
         }
         for (int r = 0; r < numRows; ++r) {
-            int rowRawIdx = target.offset + r * target.rowStride;
+            int rowRawIdx = target.getOffset() + r * target.getRowStride();
             for (int c = 0; c < numCols; ++c) {
-                target.raw[rowRawIdx + c * target.colStride] = F.C0;
+                target.unsafeGetRaw()[rowRawIdx + c * target.getColStride()] = F.C0;
             }
         }
     }
 
     private void computeIntoRowMaj(@NonNull SymMatrixBuffer target) {
-        computeIntoRowMajHelper(target, numRows, numCols, target.rowStride);
+        computeIntoRowMajHelper(target, numRows, numCols, target.getRowStride());
     }
 
     private void computeIntoColMaj(@NonNull SymMatrixBuffer target) {
-        computeIntoRowMajHelper(target, numCols, numRows, target.colStride);
+        computeIntoRowMajHelper(target, numCols, numRows, target.getColStride());
     }
 
     private void computeIntoRowMajHelper(@NonNull SymMatrixBuffer target, int numRows, int numCols, int rowStride) {
         for (int r = 0; r < numRows; ++r) {
-            int rowRawIdx = target.offset + r * rowStride;
+            int rowRawIdx = target.getOffset() + r * rowStride;
             for (int c = 0; c < numCols; ++c) {
-                target.raw[rowRawIdx + c] = F.C0;
+                target.unsafeGetRaw()[rowRawIdx + c] = F.C0;
             }
         }
     }

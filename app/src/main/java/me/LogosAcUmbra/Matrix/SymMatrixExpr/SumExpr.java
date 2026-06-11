@@ -1,35 +1,32 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import me.LogosAcUmbra.Matrix.OperandTree.IOperandList;
+import me.LogosAcUmbra.Matrix.OperandTree.OperandList;
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.expression.F;
 
-import static me.LogosAcUmbra.Matrix.ISymMatrixAdvancedExpr.ensureIsAdvanced;
-
-import java.util.Collections;
-import java.util.List;
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
 
 public class SumExpr implements IManyOperandExpr { // mutable
 
-    @Nullable ISymMatrixExpr parent;
     final int numRows;
     final int numCols;
-    final @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> operands;
-    final int numOperands;
+    @NonNull IOperandList operands;
 
     SumExpr(
             int numRows,
             int numCols,
-            @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> operands,
-            int numOperands
+            @NonNull IOperandList operands
     ) {
         // at least for now, SumExpr does not have cases that needs to hold 0 operands
         assert numRows >= 0 && numCols >= 0 && !operands.isEmpty();
         this.numRows = numRows;
         this.numCols = numCols;
         this.operands = operands;
-        this.numOperands = numOperands;
     }
 
     public static SumExpr of(@NonNull ISymMatrixExpr expr) {
@@ -37,39 +34,42 @@ public class SumExpr implements IManyOperandExpr { // mutable
         if (advExpr instanceof SumExpr sumExpr) {
             return sumExpr;
         }
-        return new SumExpr( advExpr.getNumRows(), advExpr.getNumCols(), ObjectArrayList.of(advExpr), 1 );
+        return new SumExpr( advExpr.getNumRows(), advExpr.getNumCols(), OperandList.of(advExpr) );
     }
 
     public static SumExpr of(@NonNull ISymMatrixExpr expr1, @NonNull ISymMatrixExpr expr2) {
         ISymMatrixAdvancedExpr advExpr1 = ensureIsAdvanced(expr1);
         ISymMatrixAdvancedExpr advExpr2 = ensureIsAdvanced(expr2);
         assert !(advExpr1 instanceof SumExpr);
+
         int numRows = advExpr1.getNumRows();
         int numCols = advExpr1.getNumCols();
         if (numRows != advExpr2.getNumRows() || numCols != advExpr2.getNumCols() ) {
             throw illegalDimensionException(advExpr1, advExpr2, "expr1", "expr2");
         }
-        ObjectArrayList<ISymMatrixAdvancedExpr> operands;
-        if (advExpr2 instanceof SumExpr sumExpr) {
-            operands = new ObjectArrayList<>(1 + sumExpr.operands.size());
-            operands.add(advExpr1);
-            operands.addAll(sumExpr.operands);
-        } else {
-            operands = ObjectArrayList.of(advExpr1, advExpr2);
-        }
-        return new SumExpr(numRows, numCols, operands, 2);
+        IOperandList operands = (
+                (advExpr2 instanceof SumExpr sumExpr)
+                ? (OperandList.Builder
+                    .of(1 + sumExpr.operands.size())
+                    .add(advExpr1)
+                    .addAll(sumExpr.operands)
+                    .build())
+                : OperandList.of(advExpr1, advExpr2)
+        );
+        return new SumExpr(numRows, numCols, operands);
     }
     static SumExpr ofMinus(@NonNull ISymMatrixExpr expr1, @NonNull ISymMatrixExpr expr2) {
         ISymMatrixAdvancedExpr advExpr1 = ensureIsAdvanced(expr1);
         ISymMatrixAdvancedExpr advExpr2 = ensureIsAdvanced(expr2);
         assert !(advExpr1 instanceof SumExpr);
+
         int numRows = advExpr1.getNumRows();
         int numCols = advExpr1.getNumCols();
         if (numRows != expr2.getNumRows() || numCols != expr2.getNumCols() ) {
             throw illegalDimensionException(advExpr1, advExpr2, "expr1", "expr2");
         }
-        ObjectArrayList<ISymMatrixAdvancedExpr> operands = ObjectArrayList.of(advExpr1, NegExpr.of(advExpr2));
-        return new SumExpr(numRows, numCols, operands, 2);
+        IOperandList operands = OperandList.of(advExpr1, NegExpr.of(advExpr2));
+        return new SumExpr(numRows, numCols, operands);
     }
 
 
@@ -91,11 +91,9 @@ public class SumExpr implements IManyOperandExpr { // mutable
             throw illegalDimensionException(advExpr);
         }
         if (advExpr instanceof SumExpr sumExpr) {
-            operands.addAll(sumExpr.operands);
-            return new SumExpr(  numRows, numCols, operands, this.numOperands + sumExpr.numOperands  );
+            return new SumExpr(  numRows, numCols, operands.withAll(sumExpr.operands)  );
         }
-        operands.add(advExpr);
-        return new SumExpr(  numRows, numCols, operands, this.numOperands + 1  );
+        return new SumExpr(  numRows, numCols, operands.with(advExpr)  );
     }
 
     @Override
@@ -104,8 +102,7 @@ public class SumExpr implements IManyOperandExpr { // mutable
         if (expr.getNumRows() != numRows || expr.getNumCols() != numCols) {
             throw illegalDimensionException(advExpr);
         }
-        operands.add(NegExpr.of(advExpr));
-        return new SumExpr(  numRows, numCols, operands, this.numOperands + 1 );
+        return new SumExpr(  numRows, numCols, operands.with(NegExpr.of(advExpr)) );
     }
 
     // advanced
@@ -114,23 +111,24 @@ public class SumExpr implements IManyOperandExpr { // mutable
         // at least for now, sumExpr must have this.operands.size() >= 1
         assert !operands.isEmpty();
 
-        operands.getFirst().computeIntoBuffer(target, pool);
-        assert numRows == target.numRows && numCols == target.numCols;
+        ObjectArrayList<@NonNull ISymMatrixAdvancedExpr> ops = operands.getOperandsAndFlatten();
+        ops.getFirst().computeIntoBuffer(target, pool);
+        assert numRows == target.getNumRows() && numCols == target.getNumCols();
 
         SymMatrixBuffer scratch = pool.lease0ContRowMaj(numRows, numCols);
         for (int i = 1; i < operands.size(); i++) {
             ISymMatrixAdvancedExpr expr = operands.get(i);
             expr.computeIntoBuffer(scratch, pool);
             for (int r = 0; r < numRows; ++r) {
-                int sRowIdx = r * scratch.rowStride;
-                int tRowIdx = r * target.rowStride;
+                int sRowIdx = r * scratch.getRowStride();
+                int tRowIdx = r * target.getRowStride();
 
                 for (int c = 0; c < numCols; ++c) {
-                    int sIdx = sRowIdx + c * scratch.colStride;
-                    int tIdx = tRowIdx + c * target.colStride;
-                    target.raw[tIdx] = F.Plus(
-                            target.raw[tIdx],
-                            scratch.raw[sIdx]
+                    int sIdx = sRowIdx + c * scratch.getColStride();
+                    int tIdx = tRowIdx + c * target.getColStride();
+                    target.unsafeGetRaw()[tIdx] = F.Plus(
+                            target.unsafeGetRaw()[tIdx],
+                            scratch.unsafeGetRaw()[sIdx]
                     );
                 }
             }
@@ -144,31 +142,15 @@ public class SumExpr implements IManyOperandExpr { // mutable
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
-        return Collections.unmodifiableList(operands.subList(0, numOperands));
-    }
-
-    /**
-     * @return the direct reference to the internal ArrayList for storing operands
-     */
-    public @NonNull ObjectArrayList<ISymMatrixAdvancedExpr> getOperandsRef() {
+    public @NonNull IOperandList getOperandsRef() {
         return operands;
     }
 
     @Override
-    public @Nullable ISymMatrixExpr getParent() {
-        return parent;
-    }
-
-    @Override
-    public @NonNull SumExpr setParent(@NonNull ISymMatrixExpr parent) {
-        this.parent = parent;
+    public @NonNull IManyOperandExpr unsafeSetOperands(@NonNull IOperandList operandsWithSameVal) {
+        this.operands = operandsWithSameVal;
         return this;
     }
-
-//    private ObjectArrayList<ISymMatrixAdvancedExpr> advancedOperands() {
-//        return (ObjectArrayList<ISymMatrixAdvancedExpr>) (ObjectArrayList<?>) operands;
-//    }
 
     private IllegalArgumentException illegalDimensionException(
             @NonNull ISymMatrixAdvancedExpr expr

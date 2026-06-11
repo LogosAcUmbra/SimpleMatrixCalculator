@@ -1,5 +1,8 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
+import me.LogosAcUmbra.Matrix.IMatrix;
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.eval.ExprEvaluator;
@@ -20,7 +23,6 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
     protected static final ThreadLocal<ExprEvaluator> EVALUATOR
             = ThreadLocal.withInitial(ExprEvaluator::new);
 
-    protected @Nullable ISymMatrixExpr parent;
 
     protected final @NonNull IExpr @NonNull [] raw;
     protected final int numRows, numCols;
@@ -150,14 +152,14 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
         return Optional.of(unsafeOf0ContRowMaj(matInArr, numRows, numCols));
     }
 
-    protected static SymMatrix unsafeOf0ContRowMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
+    public static SymMatrix unsafeOf0ContRowMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
         return new SymMatrix(
                 mat,
                 numRows, numCols,
                 0, numCols, 1,
                 false, false);
     }
-    protected static SymMatrix unsafeOf0ContColMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
+    public static SymMatrix unsafeOf0ContColMaj(@NonNull IExpr @NonNull [] mat, int numRows, int numCols) {
         return new SymMatrix(
                 mat,
                 numRows, numCols,
@@ -196,26 +198,15 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
     }
 
     @Override
-    public @Nullable ISymMatrixExpr getParent() {
-        return parent;
-    }
-
-    @Override
-    public @NonNull SymMatrix setParent(@NonNull ISymMatrixExpr parent) {
-        this.parent = parent;
-        return this;
-    }
-
-    @Override
     public void computeIntoBuffer(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool pool) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
         // copy, complying layout of target
         for (int r = 0; r < numRows; ++r) {
             int rawRowIdx = offset + r * this.rowStride;
-            int bufferRowIdx = target.offset + r * target.rowStride;
+            int bufferRowIdx = target.getOffset() + r * target.getRowStride();
 
             for (int c = 0; c < numCols; ++c) {
-                target.raw[bufferRowIdx + c * colStride] = this.raw[rawRowIdx + c * this.colStride];
+                target.unsafeGetRaw()[bufferRowIdx + c * colStride] = this.raw[rawRowIdx + c * this.colStride];
             }
         }
     }
@@ -237,7 +228,8 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
             ;
             return result;
         }
-        // although we can freely choose the layout, but it is still better to be not fragmented, so we use 0ContRowMaj
+        // although we can freely choose the layout, it is still better to be not fragmented,
+        // as we decided to change the layout, we change it to the best layout 0ContRowMaj
         SymMatrixBuffer result = pool.lease0ContRowMaj(this.numRows, this.numCols);
         computeIntoBuffer(result, pool);
         return result;

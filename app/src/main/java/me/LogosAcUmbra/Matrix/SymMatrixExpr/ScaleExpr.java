@@ -1,7 +1,8 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.expression.F;
 import org.matheclipse.core.interfaces.IExpr;
 
@@ -11,15 +12,17 @@ import java.util.concurrent.Executors;
 
 import static me.LogosAcUmbra.Matrix.SymMatrixParallelRouter.*;
 
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
+
+
 public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
 
-    @Nullable ISymMatrixExpr parent;
-    int numRows;
-    int numCols;
-    @NonNull ISymMatrixExpr operand;
-    @NonNull IExpr scalar;
+    private final int numRows;
+    private final int numCols;
+    private @NonNull ISymMatrixAdvancedExpr operand;
+    private final @NonNull IExpr scalar;
 
-    private ScaleExpr(@NonNull ISymMatrixExpr operand, @NonNull IExpr scalar) {
+    private ScaleExpr(@NonNull ISymMatrixAdvancedExpr operand, @NonNull IExpr scalar) {
         this.numRows = operand.getNumRows();
         this.numCols = operand.getNumCols();
         this.operand = operand;
@@ -32,8 +35,9 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
      * @return the resultant instance
      */
     public static ScaleExpr of(@NonNull ISymMatrixExpr operand) {
+        ISymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
         assert !(operand instanceof ScaleExpr);
-        return new ScaleExpr(operand, F.C1);
+        return new ScaleExpr(advOp, F.C1);
     }
 
     /**
@@ -42,8 +46,9 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
      * @return the resultant instance
      */
     public static ScaleExpr of(@NonNull ISymMatrixExpr operand, IExpr scalar) {
+        ISymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
         assert !(operand instanceof ScaleExpr);
-        return new ScaleExpr(operand, scalar);
+        return new ScaleExpr(advOp, scalar);
     }
 
     @Override
@@ -62,7 +67,7 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     @Override
-    public @NonNull ISymMatrixExpr getOperandRef() {
+    public @NonNull ISymMatrixAdvancedExpr getOperandRef() {
         return operand;
     }
 
@@ -71,42 +76,20 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     @Override
-    public @NonNull ScaleExpr setOperand(@NonNull ISymMatrixExpr operand) {
+    public @NonNull ScaleExpr unsafeSetOperand(@NonNull ISymMatrixAdvancedExpr operand) {
         this.operand = operand;
         return this;
     }
 
     @Override
-    public @Nullable ISymMatrixExpr getParent() {
-        return parent;
-    }
-
-    @Override
-    public @NonNull ScaleExpr setParent(@NonNull ISymMatrixExpr parent) {
-        this.parent = parent;
-        return this;
-    }
-
-    public @NonNull ScaleExpr setScalar(@NonNull IExpr scalar) {
-        this.scalar = scalar;
-        return this;
-    }
-
-    @Override
-    public @NonNull ISymMatrixExpr negate() {
-        return NegExpr.of(operand);
-    }
-
-    @Override
     public @NonNull ISymMatrixExpr scale(@NonNull IExpr scalar) {
-        this.scalar = F.Times(this.scalar, scalar);
-        return this;
+        return new ScaleExpr(  operand, F.Times(this.scalar, scalar)  );
     }
 
     @Override
     public void computeIntoBuffer(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
         ((ISymMatrixAdvancedExpr) operand).computeIntoBuffer(target, bufferPool);
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
         assert target.hasAllElemsNonNull();
         computeIntoHelper(target);
     }
@@ -130,20 +113,20 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
 
 
     private void computeIntoHelper(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
         assert target.hasAllElemsNonNull();
-        if (target.isEmpty || target.isZero) {
+        if (target.isEmpty() || target.isZero()) {
             return;
         }
         if (target.isContAnyMaj()) {
             computeIntoHelperContiguous(target);
             return;
         }
-        if (target.colStride == 1) {
+        if (target.getColStride() == 1) {
             computeIntoHelperRowMaj(target);
             return;
         }
-        if (target.rowStride == 1) {
+        if (target.getRowStride() == 1) {
             computeIntoHelperColMaj(target);
             return;
         }
@@ -151,8 +134,8 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     private void computeIntoHelperContiguous(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
         assert target.isContAnyMaj();
 
@@ -170,7 +153,7 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
         int numElemsPerCore = (numElems + numCores - 1) / numCores; // numElems ceilDiv numCores
         int numElemsLastCore = numElems - (numCores - 1) * numElemsPerCore;
         try (  ExecutorService executor = Executors.newFixedThreadPool(numCores)  ) {
-            int begin = target.offset;
+            int begin = target.getOffset();
             int end;
             for (int i = 0; i < numCores - 1; ++i) {
                 end = begin + numElemsPerCore;
@@ -178,21 +161,21 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
                 final int finalBegin = begin;
                 final int finalEnd = end;
                 executor.submit( () -> {
-                    mapScaleToArr(target.raw, finalBegin, finalEnd);
+                    mapScaleToArr(target.unsafeGetRaw(), finalBegin, finalEnd);
                 });
 
                 begin = end;
             }
             final int finalBegin = begin;
-            executor.submit( () -> mapScaleToArr(target.raw, finalBegin, finalBegin + numElemsLastCore));
+            executor.submit( () -> mapScaleToArr(target.unsafeGetRaw(), finalBegin, finalBegin + numElemsLastCore));
         }
     }
 
     private void computeIntoHelperRowMaj(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
-        assert target.colStride == 1;
+        assert target.getColStride() == 1;
 
         int numCores = calSuitableNumCoresRowMaj(
                 Runtime.getRuntime().availableProcessors(),
@@ -203,14 +186,14 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
             return;
         }
 
-        rowMajHelper(target, numCores, numRows, numCols, target.rowStride);
+        rowMajHelper(target, numCores, numRows, numCols, target.getRowStride());
     }
 
     private void computeIntoHelperColMaj(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
-        assert target.rowStride == 1;
+        assert target.getRowStride() == 1;
 
         int numCores = calSuitableNumCoresColMaj(
                 Runtime.getRuntime().availableProcessors(),
@@ -222,12 +205,12 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
         }
 
         // reuse rowMaj logic with numRows and numCols, rowStride and colStride swapped
-        rowMajHelper(target, numCores, numCols, numRows, target.colStride);
+        rowMajHelper(target, numCores, numCols, numRows, target.getColStride());
     }
 
     private void computeIntoHelperFragmented(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
 
         int numElems = numRows * numCols;
@@ -260,38 +243,38 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     private void computeIntoHelperContiguousSequential(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
         assert target.isContAnyMaj();
 
-        mapScaleToArr(target.raw, target.offset, target.offset + target.numRows * target.numCols);
+        mapScaleToArr(target.unsafeGetRaw(), target.getOffset(), target.getOffset() + target.getNumRows() * target.getNumCols());
     }
     private void computeIntoHelperRowMajSequential(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
-        assert target.colStride == 1;
+        assert target.getColStride() == 1;
 
         for (int r = 0; r < numRows; ++r) {
-            int rowRawIdx = target.offset + r * target.rowStride;
-            mapScaleToArr(target.raw, rowRawIdx, rowRawIdx + target.numCols);
+            int rowRawIdx = target.getOffset() + r * target.getRowStride();
+            mapScaleToArr(target.unsafeGetRaw(), rowRawIdx, rowRawIdx + target.getNumCols());
         }
     }
     private void computeIntoHelperColMajSequential(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
-        assert target.rowStride == 1;
+        assert target.getRowStride() == 1;
 
         for (int c = 0; c < numCols; ++c) {
-            int colRawIdx = target.offset + c * target.colStride;
-            mapScaleToArr(target.raw, colRawIdx, colRawIdx + numRows);
+            int colRawIdx = target.getOffset() + c * target.getColStride();
+            mapScaleToArr(target.unsafeGetRaw(), colRawIdx, colRawIdx + numRows);
         }
     }
     private void computeIntoHelperFragmentedSequential(@NonNull SymMatrixBuffer target) {
-        assert this.numRows == target.numRows && this.numCols == target.numCols;
-        assert !target.isEmpty && !target.isZero;
+        assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
+        assert !target.isEmpty() && !target.isZero();
         assert target.hasAllElemsNonNull();
 
         fragmentedHelperEachCore(target, 0, 0, numRows * numCols);
@@ -309,21 +292,21 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
 
                 final int finalBeginRow = beginRow;
                 final int finalEndRow = nextBeginRow;
-                executor.submit( () -> mapScaleToRows(target.raw, target.offset, finalBeginRow, finalEndRow, numCols, rowStride) );
+                executor.submit( () -> mapScaleToRows(target.unsafeGetRaw(), target.getOffset(), finalBeginRow, finalEndRow, numCols, rowStride) );
 
                 beginRow = nextBeginRow;
             }
             final int finalBeginRow = beginRow;
-            executor.submit( () -> mapScaleToRows(target.raw, target.offset, finalBeginRow, finalBeginRow + numRowsLastCore, numCols, rowStride) );
+            executor.submit( () -> mapScaleToRows(target.unsafeGetRaw(), target.getOffset(), finalBeginRow, finalBeginRow + numRowsLastCore, numCols, rowStride) );
         }
     }
 
     private void fragmentedHelperEachCore(@NonNull SymMatrixBuffer target, int beginR, int beginC, int numElemsOfCore) {
         // cache
-        int rowStride = target.rowStride, colStride = target.colStride;
-        IExpr [] raw = target.raw;
+        int rowStride = target.getRowStride(), colStride = target.getColStride();
+        IExpr [] raw = target.unsafeGetRaw();
 
-        int rowRawIdx = target.offset + beginR * rowStride;
+        int rowRawIdx = target.getOffset() + beginR * rowStride;
         int colRawOffset = beginC * colStride;
         int colRawOffsetEnd = numCols * colStride;
         for (int j = 0; j < numElemsOfCore; ++j) {

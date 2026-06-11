@@ -18,17 +18,17 @@ final class OperandTreeLeaf implements IOperandTree {
     }
 
     @Override
-    public @NonNull IOperandTree add(@NonNull ISymMatrixAdvancedExpr expr) {
+    public @NonNull IOperandTree with(@NonNull ISymMatrixAdvancedExpr expr) {
         return null;
     }
 
     @Override
-    public @NonNull IOperandTree addAll(@NonNull ISymMatrixAdvancedExpr... args) {
+    public @NonNull IOperandTree withAll(@NonNull ISymMatrixAdvancedExpr... args) {
         return null;
     }
 
     @Override
-    public @NonNull IOperandList addAll(@NonNull IOperandList other) {
+    public @NonNull IOperandList withAll(@NonNull IOperandList other) {
         return null;
     }
 
@@ -48,7 +48,7 @@ final class OperandTreeLeaf implements IOperandTree {
     }
 
     @Override
-    public IOperandTree addAll(@NonNull IOperandTree other) {
+    public IOperandTree withAll(@NonNull IOperandTree other) {
         return null;
     }
     // TODO

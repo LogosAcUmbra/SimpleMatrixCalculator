@@ -28,9 +28,6 @@ public interface ISymMatrixAdvancedExpr extends ISymMatrixExpr {
         return target;
     }
 
-    @Nullable ISymMatrixExpr getParent();
-    @NonNull ISymMatrixExpr setParent(@NonNull ISymMatrixExpr parent);
-
     static @NonNull ISymMatrixAdvancedExpr ensureIsAdvanced(ISymMatrixExpr expr) {
         if (expr instanceof ISymMatrixAdvancedExpr advancedExpr) {
             return advancedExpr;

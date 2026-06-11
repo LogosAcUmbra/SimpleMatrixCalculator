@@ -1,5 +1,7 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
+import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
+import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 

@@ -1,5 +1,7 @@
-package me.LogosAcUmbra.Matrix;
+package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
+import me.LogosAcUmbra.Matrix.IMatrixBase;
+import me.LogosAcUmbra.Matrix.OperandTree.IOperandList;
 import org.jspecify.annotations.NonNull;
 import org.matheclipse.core.interfaces.IExpr;
 
@@ -24,7 +26,7 @@ public interface ISymMatrixExpr extends IMatrixBase {
         return MulExpr.of(this, expr); // recursive dependency marked
     }
 
-    @NonNull List<ISymMatrixExpr> getOperands();
+    @NonNull IOperandList getOperands();
 
 //    @NonNull SymMatrix compute();
 //

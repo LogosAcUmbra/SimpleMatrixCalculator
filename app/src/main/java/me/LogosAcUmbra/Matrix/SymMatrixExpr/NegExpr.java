@@ -6,23 +6,23 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
-import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.SymMatrixAdvancedExpr.ensureIsAdvanced;
 
 
-public class NegExpr implements IOneOperandExpr {
+public class NegExpr implements OneOperandExpr {
 
     private final int numRows;
     private final int numCols;
-    private @NonNull ISymMatrixAdvancedExpr operand;
+    private @NonNull SymMatrixAdvancedExpr operand;
 
-    private NegExpr(@NonNull ISymMatrixAdvancedExpr operand) {
+    private NegExpr(@NonNull SymMatrixAdvancedExpr operand) {
         this.numRows = operand.getNumRows();
         this.numCols = operand.getNumCols();
         this.operand = operand;
     }
 
-    public static NegExpr of(@NonNull ISymMatrixExpr operand) {
-        ISymMatrixAdvancedExpr advOperand = ensureIsAdvanced(operand);
+    public static NegExpr of(@NonNull SymMatrixExpr operand) {
+        SymMatrixAdvancedExpr advOperand = ensureIsAdvanced(operand);
         return new NegExpr(advOperand);
     }
 
@@ -38,23 +38,23 @@ public class NegExpr implements IOneOperandExpr {
 
 
     @Override
-    public @NonNull ISymMatrixExpr negate() {
+    public @NonNull SymMatrixExpr negate() {
         return operand;
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
+    public @NonNull List<SymMatrixExpr> getOperands() {
         return List.of(operand);
     }
 
 
     @Override
-    public @NonNull ISymMatrixAdvancedExpr getOperandRef() {
+    public @NonNull SymMatrixAdvancedExpr getOperandRef() {
         return operand;
     }
 
     @Override
-    public @NonNull NegExpr unsafeSetOperand(@NonNull ISymMatrixAdvancedExpr operandWithSameVal) {
+    public @NonNull NegExpr unsafeSetOperand(@NonNull SymMatrixAdvancedExpr operandWithSameVal) {
         this.operand = operandWithSameVal;
         return this;
     }

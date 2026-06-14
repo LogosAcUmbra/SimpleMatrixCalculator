@@ -1,6 +1,6 @@
 package me.LogosAcUmbra.Matrix;
 
-public interface ISymMatrix extends IBaseSymMatrix {
+public interface Matrix extends MatrixBase {
     int getOffset();
     int getRowStride();
     int getColStride();

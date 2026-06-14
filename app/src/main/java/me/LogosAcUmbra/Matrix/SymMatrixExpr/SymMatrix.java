@@ -1,10 +1,9 @@
 package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
-import me.LogosAcUmbra.Matrix.IMatrix;
+import me.LogosAcUmbra.Matrix.Matrix;
 import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
 import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.matheclipse.core.expression.F;
 import org.matheclipse.core.interfaces.IAST;
@@ -18,7 +17,7 @@ import java.util.Optional;
  * not thread safe (for now) <br>
  * does not support negative strides
  */
-public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
+public class SymMatrix implements Matrix, SymMatrixAdvancedExpr {
 
     protected static final ThreadLocal<ExprEvaluator> EVALUATOR
             = ThreadLocal.withInitial(ExprEvaluator::new);
@@ -166,6 +165,15 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
                 0, 1, numRows,
                 false, false);
     }
+    public static SymMatrix unsafeOf(
+            @NonNull IExpr @NonNull [] raw, int numRows, int numCols,
+            int offset, int rowStride, int colStride,
+            boolean isZero, boolean isEmpty) {
+        return new SymMatrix(
+                raw, numRows, numCols,
+                offset, rowStride, colStride,
+                isZero, isEmpty);
+    }
 
 
     public @NonNull IExpr get(int rowIdx, int colIdx) {
@@ -236,7 +244,7 @@ public class SymMatrix implements IMatrix, ISymMatrixAdvancedExpr {
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
+    public @NonNull List<SymMatrixExpr> getOperands() {
         return List.of(this);
     }
 

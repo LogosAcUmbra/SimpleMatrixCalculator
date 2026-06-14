@@ -7,7 +7,7 @@ import org.matheclipse.core.expression.F;
 import java.util.Arrays;
 import java.util.List;
 
-public class ZeroExpr implements ISymMatrixAdvancedExpr {
+public class ZeroExpr implements SymMatrixAdvancedExpr {
     final int numRows;
     final int numCols;
 
@@ -31,7 +31,7 @@ public class ZeroExpr implements ISymMatrixAdvancedExpr {
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
+    public @NonNull List<SymMatrixExpr> getOperands() {
         return List.of();
     }
 

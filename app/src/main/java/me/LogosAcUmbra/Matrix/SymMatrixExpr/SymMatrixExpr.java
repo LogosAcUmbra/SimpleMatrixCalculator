@@ -1,32 +1,31 @@
 package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 
-import me.LogosAcUmbra.Matrix.IMatrixBase;
-import me.LogosAcUmbra.Matrix.OperandTree.IOperandList;
+import me.LogosAcUmbra.Matrix.MatrixBase;
 import org.jspecify.annotations.NonNull;
 import org.matheclipse.core.interfaces.IExpr;
 
 import java.util.List;
 
-public interface ISymMatrixExpr extends IMatrixBase {
+public interface SymMatrixExpr extends MatrixBase {
 
 
-    default @NonNull ISymMatrixExpr negate() {
+    default @NonNull SymMatrixExpr negate() {
         return NegExpr.of(this); // recursive dependency marked
     }
-    default @NonNull ISymMatrixExpr plus(@NonNull ISymMatrixExpr expr) {
+    default @NonNull SymMatrixExpr plus(@NonNull SymMatrixExpr expr) {
         return SumExpr.of(this, expr); // recursive dependency marked
     }
-    default @NonNull ISymMatrixExpr minus(@NonNull ISymMatrixExpr expr) {
+    default @NonNull SymMatrixExpr minus(@NonNull SymMatrixExpr expr) {
         return SumExpr.ofMinus(this, expr); // recursive dependency marked
     }
-    default @NonNull ISymMatrixExpr scale(@NonNull IExpr scalar) {
+    default @NonNull SymMatrixExpr scale(@NonNull IExpr scalar) {
         return ScaleExpr.of(this, scalar); // recursive dependency marked
     }
-    default @NonNull ISymMatrixExpr times(@NonNull ISymMatrixExpr expr) {
+    default @NonNull SymMatrixExpr times(@NonNull SymMatrixExpr expr) {
         return MulExpr.of(this, expr); // recursive dependency marked
     }
 
-    @NonNull List<? extends @NonNull ISymMatrixExpr> getOperands();
+    @NonNull List<? extends @NonNull SymMatrixExpr> getOperands();
 
 //    @NonNull SymMatrix compute();
 //

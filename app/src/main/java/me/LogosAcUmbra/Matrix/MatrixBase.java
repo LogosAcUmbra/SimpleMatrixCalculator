@@ -1,6 +1,6 @@
 package me.LogosAcUmbra.Matrix;
 
-public interface IBaseSymMatrix {
+public interface MatrixBase {
     int getNumRows();
     int getNumCols();
 }

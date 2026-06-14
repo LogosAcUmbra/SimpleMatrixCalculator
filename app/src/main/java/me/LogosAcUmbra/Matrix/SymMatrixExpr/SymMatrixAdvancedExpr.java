@@ -3,9 +3,8 @@ package me.LogosAcUmbra.Matrix.SymMatrixExpr;
 import me.LogosAcUmbra.Matrix.SymMatrixBuffer;
 import me.LogosAcUmbra.Matrix.SymMatrixBufferPool;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
-public interface ISymMatrixAdvancedExpr extends ISymMatrixExpr {
+public interface SymMatrixAdvancedExpr extends SymMatrixExpr {
     /**
      * Compute directly into the given pre-allocated target buffer,
      * complying with the layout of the given target buffer
@@ -28,8 +27,8 @@ public interface ISymMatrixAdvancedExpr extends ISymMatrixExpr {
         return target;
     }
 
-    static @NonNull ISymMatrixAdvancedExpr ensureIsAdvanced(ISymMatrixExpr expr) {
-        if (expr instanceof ISymMatrixAdvancedExpr advancedExpr) {
+    static @NonNull SymMatrixAdvancedExpr ensureIsAdvanced(SymMatrixExpr expr) {
+        if (expr instanceof SymMatrixAdvancedExpr advancedExpr) {
             return advancedExpr;
         }
         throw new IllegalArgumentException(

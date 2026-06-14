@@ -12,17 +12,17 @@ import java.util.concurrent.Executors;
 
 import static me.LogosAcUmbra.Matrix.SymMatrixParallelRouter.*;
 
-import static me.LogosAcUmbra.Matrix.SymMatrixExpr.ISymMatrixAdvancedExpr.ensureIsAdvanced;
+import static me.LogosAcUmbra.Matrix.SymMatrixExpr.SymMatrixAdvancedExpr.ensureIsAdvanced;
 
 
-public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
+public class ScaleExpr implements SymMatrixExpr, OneOperandExpr {
 
     private final int numRows;
     private final int numCols;
-    private @NonNull ISymMatrixAdvancedExpr operand;
+    private @NonNull SymMatrixAdvancedExpr operand;
     private final @NonNull IExpr scalar;
 
-    private ScaleExpr(@NonNull ISymMatrixAdvancedExpr operand, @NonNull IExpr scalar) {
+    private ScaleExpr(@NonNull SymMatrixAdvancedExpr operand, @NonNull IExpr scalar) {
         this.numRows = operand.getNumRows();
         this.numCols = operand.getNumCols();
         this.operand = operand;
@@ -34,8 +34,8 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
      * @param operand the operand, recommended not to be Self ({@link ScaleExpr})
      * @return the resultant instance
      */
-    public static ScaleExpr of(@NonNull ISymMatrixExpr operand) {
-        ISymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
+    public static ScaleExpr of(@NonNull SymMatrixExpr operand) {
+        SymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
         assert !(operand instanceof ScaleExpr);
         return new ScaleExpr(advOp, F.C1);
     }
@@ -45,8 +45,8 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
      * @param operand the operand, recommended not to be Self ({@link ScaleExpr})
      * @return the resultant instance
      */
-    public static ScaleExpr of(@NonNull ISymMatrixExpr operand, IExpr scalar) {
-        ISymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
+    public static ScaleExpr of(@NonNull SymMatrixExpr operand, IExpr scalar) {
+        SymMatrixAdvancedExpr advOp = ensureIsAdvanced(operand);
         assert !(operand instanceof ScaleExpr);
         return new ScaleExpr(advOp, scalar);
     }
@@ -62,12 +62,12 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     @Override
-    public @NonNull List<ISymMatrixExpr> getOperands() {
+    public @NonNull List<SymMatrixExpr> getOperands() {
         return List.of(operand);
     }
 
     @Override
-    public @NonNull ISymMatrixAdvancedExpr getOperandRef() {
+    public @NonNull SymMatrixAdvancedExpr getOperandRef() {
         return operand;
     }
 
@@ -76,19 +76,19 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
     }
 
     @Override
-    public @NonNull ScaleExpr unsafeSetOperand(@NonNull ISymMatrixAdvancedExpr operand) {
+    public @NonNull ScaleExpr unsafeSetOperand(@NonNull SymMatrixAdvancedExpr operand) {
         this.operand = operand;
         return this;
     }
 
     @Override
-    public @NonNull ISymMatrixExpr scale(@NonNull IExpr scalar) {
+    public @NonNull SymMatrixExpr scale(@NonNull IExpr scalar) {
         return new ScaleExpr(  operand, F.Times(this.scalar, scalar)  );
     }
 
     @Override
     public void computeIntoBuffer(@NonNull SymMatrixBuffer target, @NonNull SymMatrixBufferPool bufferPool) {
-        ((ISymMatrixAdvancedExpr) operand).computeIntoBuffer(target, bufferPool);
+        ((SymMatrixAdvancedExpr) operand).computeIntoBuffer(target, bufferPool);
         assert this.numRows == target.getNumRows() && this.numCols == target.getNumCols();
         assert target.hasAllElemsNonNull();
         computeIntoHelper(target);
@@ -100,7 +100,7 @@ public class ScaleExpr implements ISymMatrixExpr, IOneOperandExpr {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    private static void ensureNotSelf(@NonNull ISymMatrixExpr operand) {
+    private static void ensureNotSelf(@NonNull SymMatrixExpr operand) {
         if (operand instanceof ScaleExpr) {
             throw new IllegalArgumentException(
                     "Strange Wrapping: A ScaleExpr instance should not have operand(" + operand + ") in type of Self (ScaleExpr)."

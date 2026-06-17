@@ -7,7 +7,7 @@ import org.matheclipse.core.expression.F;
 import java.util.Arrays;
 import java.util.List;
 
-public class ZeroExpr implements SymMatrixAdvancedExpr {
+public class ZeroExpr implements ConstOperandExpr {
     final int numRows;
     final int numCols;
 
@@ -28,6 +28,16 @@ public class ZeroExpr implements SymMatrixAdvancedExpr {
     @Override
     public int getNumCols() {
         return numCols;
+    }
+
+    @Override
+    public boolean isZero() {
+        return true;
+    }
+
+    @Override
+    public boolean isIdentity() {
+        return false;
     }
 
     @Override

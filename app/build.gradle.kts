@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.jackson.core)
     implementation(libs.matheclipse.core)
     implementation(libs.fastutil)
+    implementation("io.vavr:vavr:1.0.0")
     implementation("org.slf4j:slf4j-nop:2.0.13")
     implementation("org.ejml:ejml-all:0.44.0")
     // implementation("org.ujmp:ujmp-core:0.3.0")

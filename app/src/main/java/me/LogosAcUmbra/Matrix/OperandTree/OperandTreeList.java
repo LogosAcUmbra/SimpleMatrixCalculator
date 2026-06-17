@@ -2,7 +2,6 @@ package me.LogosAcUmbra.Matrix.OperandTree;
 
 import it.unimi.dsi.fastutil.Stack;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
-import it.unimi.dsi.fastutil.objects.AbstractObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import me.LogosAcUmbra.Matrix.SymMatrixExpr.SymMatrixAdvancedExpr;
 import me.LogosAcUmbra.Matrix.SymMatrixExpr.SymMatrixExpr;
@@ -14,25 +13,21 @@ import java.util.*;
 public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr> {
     
     static @NonNull OperandTreeList empty() {
-        return Unsafe.Internal.Empty.getInstance();
+        return Internal.Empty.getInstance();
     }
 
     /**
      * @param operands the operands <br>
      *                 [Ownership Transferal] if an array of operands is given,
      *                 this array will be directly used as the internal array of the new instance
-     * @return a new {@link OperandTreeList.Unsafe.Internal.Leaf} instance containing only the given operands
+     * @return a new {@link OperandTreeList.Internal.Leaf} instance containing only the given operands
      */
     static @NonNull OperandTreeList of(@NonNull SymMatrixAdvancedExpr... operands) {
-        return Unsafe.Internal.Leaf.of(  operands  );
-    }
-
-    static @NonNull OperandTreeList of(@NonNull OperandList operandList) {
-        return Unsafe.Internal.Leaf.of(  operandList  );
+        return Internal.Leaf.of(  operands  );
     }
 
     static @NonNull OperandTreeList of(@NonNull Collection<? extends SymMatrixAdvancedExpr> collection) {
-        return Unsafe.Internal.Leaf.of(  collection  );
+        return Internal.Leaf.of(  collection  );
     }
 
     static @NonNull Builder builder() {
@@ -67,8 +62,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
      * @return a new {@link OperandTreeList} instance containing previous operands and the given new operands
      */
     @NonNull OperandTreeList withAll(@NonNull SymMatrixAdvancedExpr... operands);
-
-    @NonNull OperandTreeList withAll(@NonNull OperandList operandList);
 
     @NonNull OperandTreeList withAll(@NonNull OperandTreeList other);
 
@@ -112,12 +105,12 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
             this.elements = elements;
         }
 
-        public Unsafe.@NonNull Internal build() {
+        public @NonNull Internal build() {
             if (this.elements.isEmpty()) {
-                return Unsafe.Internal.Empty.getInstance();
+                return Internal.Empty.getInstance();
             }
             // Seamlessly creates a Leaf node containing the backing array
-            return Unsafe.Internal.Leaf.of(this.elements);
+            return Internal.Leaf.of(this.elements);
         }
 
         public @NonNull Builder ensureCapacity(int capacity) {
@@ -128,7 +121,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         public @NonNull Builder setOperands(@NonNull OperandTreeList other) {
             this.elements = new ObjectArrayList<>();
             if (!other.isEmpty()) {
-                this.elements.addAll(Arrays.asList(((Unsafe) other).getOperandsFast()));
+                this.elements.addAll(Arrays.asList(other.unsafeGetOperandsRead()));
             }
             return this;
         }
@@ -161,14 +154,14 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
 
         public @NonNull Builder addAll(OperandTreeList other) {
             if (other != null && !other.isEmpty()) {
-                this.elements.addAll(Arrays.asList(((Unsafe) other).getOperandsFast()));
+                this.elements.addAll(Arrays.asList(other.unsafeGetOperandsRead()));
             }
             return this;
         }
 
         public @NonNull Builder addAll(int index, OperandTreeList other) {
             if (other != null && !other.isEmpty()) {
-                this.elements.addAll(index, Arrays.asList(((Unsafe) other).getOperandsFast()));
+                this.elements.addAll(index, Arrays.asList(other.unsafeGetOperandsRead()));
             }
             return this;
         }
@@ -193,17 +186,15 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
     }
 
-    sealed interface Unsafe extends OperandTreeList {
-
-    void setElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal);
+    void unsafeSetElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal);
 
     /**
      * Use this method when you're only reading the elements
-     * @return fastest way of getting array of operands, MAYBE and MAY NOT BE a DIRECT REFERENCE to internal array
+     * @return fastest possible way of getting array of operands, MAYBE and MAY NOT BE a DIRECT REFERENCE to internal array
      */
-    @NonNull SymMatrixAdvancedExpr @NonNull [] getOperandsFast();
+    @NonNull SymMatrixAdvancedExpr @NonNull [] unsafeGetOperandsRead();
 
-    sealed interface Internal extends OperandTreeList, Unsafe {
+    sealed interface Internal extends OperandTreeList {
 
     @Override
     @NonNull Internal with(@NonNull SymMatrixAdvancedExpr expr);
@@ -215,9 +206,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
     @NonNull Internal withAll(@NonNull SymMatrixAdvancedExpr... operands);
 
     @Override
-    @NonNull Internal withAll(@NonNull OperandList operandList);
-
-    @Override
     @NonNull Internal withAll(@NonNull OperandTreeList other);
 
     @Override
@@ -227,10 +215,10 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
 
     // OperandList.Unsafe
     @Override
-    void setElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal);
+    void unsafeSetElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal);
 
     @Override
-    @NonNull SymMatrixAdvancedExpr @NonNull [] getOperandsFast();
+    @NonNull SymMatrixAdvancedExpr @NonNull [] unsafeGetOperandsRead();
 
 
     /**
@@ -268,11 +256,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         @Override
         public @NonNull Leaf withAll(@NonNull Collection<? extends SymMatrixAdvancedExpr> collection) {
             return Leaf.of(collection);
-        }
-
-        @Override
-        public @NonNull Leaf withAll(@NonNull OperandList operandList) {
-            return Leaf.of(operandList);
         }
 
         @Override
@@ -324,7 +307,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public void setElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
+        public void unsafeSetElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
             Objects.checkIndex(index, 0);
             throw new IndexOutOfBoundsException("Unreachable");
         }
@@ -375,7 +358,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public @NonNull SymMatrixAdvancedExpr @NonNull [] getOperandsFast() {
+        public @NonNull SymMatrixAdvancedExpr @NonNull [] unsafeGetOperandsRead() {
             throw new IllegalStateException("node is Empty");
         }
     }
@@ -402,10 +385,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         private static @NonNull Leaf of(@NonNull SymMatrixAdvancedExpr... operands) {
             assert operands.length > 0;
             return new Leaf(operands);
-        }
-
-        private static @NonNull Leaf of(@NonNull OperandList operandList) {
-            return new Leaf(((OperandList.Unsafe) operandList).getOperandsFast());
         }
 
         private static @NonNull Leaf of(@NonNull Collection<? extends SymMatrixAdvancedExpr> collection) {
@@ -441,14 +420,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
                 return this;
             }
             return Concat.of(this, Leaf.of(operands));
-        }
-
-        @Override
-        public @NonNull Internal withAll(@NonNull OperandList operandList) {
-            if (operandList.isEmpty()) {
-                return this;
-            }
-            return Concat.of(this, Leaf.of(operandList));
         }
 
         @Override
@@ -500,7 +471,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         // Unsafe
 
         @Override
-        public void setElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
+        public void unsafeSetElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
             this.segment[index] = exprWithSameVal;
         }
 
@@ -549,7 +520,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public @NonNull SymMatrixAdvancedExpr @NonNull [] getOperandsFast() {
+        public @NonNull SymMatrixAdvancedExpr @NonNull [] unsafeGetOperandsRead() {
             return segment;
         }
     }
@@ -613,11 +584,6 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public @NonNull Internal withAll(@NonNull OperandList other) {
-            return Concat.of(this, Leaf.of(other));
-        }
-
-        @Override
         public @NonNull Concat withAll(@NonNull OperandTreeList other) {
             return Concat.of(this, (Internal) other);
         }
@@ -647,18 +613,18 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
 
         @Override
         public @NonNull SymMatrixAdvancedExpr @NonNull [] getOperands() {
-            return getOperandsFast();
+            return unsafeGetOperandsRead();
         }
 
         @Override
         public @NonNull Leaf toCollapsed() {
-            @NonNull SymMatrixAdvancedExpr [] operands = getOperandsFast();
+            @NonNull SymMatrixAdvancedExpr [] operands = unsafeGetOperandsRead();
             return new Leaf(this.parent, operands);
         }
 
         @Override
         public @NonNull Leaf toCollapsedAndUpdateParent() {
-            @NonNull SymMatrixAdvancedExpr [] operands = getOperandsFast();
+            @NonNull SymMatrixAdvancedExpr [] operands = unsafeGetOperandsRead();
             // update parent.child
             Concat parent = this.parent;
             if (parent == null) {
@@ -679,9 +645,9 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public void setElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
+        public void unsafeSetElem(int index, @NonNull SymMatrixAdvancedExpr exprWithSameVal) {
             IntObjectPair<Leaf> idxAndLeaf = findLeafHavingIdx(index);
-            idxAndLeaf.right().setElem(idxAndLeaf.leftInt(), exprWithSameVal);
+            idxAndLeaf.right().unsafeSetElem(idxAndLeaf.leftInt(), exprWithSameVal);
         }
 
         @Override
@@ -703,7 +669,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         public @NonNull Iterator<SymMatrixAdvancedExpr> iterator() {
             return new Iterator<>() {
                 // there is nth we can do
-                private final @NonNull SymMatrixAdvancedExpr @NonNull [] operands = getOperandsFast();
+                private final @NonNull SymMatrixAdvancedExpr @NonNull [] operands = unsafeGetOperandsRead();
                 private int idx;
                 @Override
                 public boolean hasNext() {
@@ -731,7 +697,7 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
         }
 
         @Override
-        public @NonNull SymMatrixAdvancedExpr @NonNull [] getOperandsFast() {
+        public @NonNull SymMatrixAdvancedExpr @NonNull [] unsafeGetOperandsRead() {
             return getOperandsHelper();
         }
 
@@ -841,5 +807,4 @@ public sealed interface OperandTreeList extends Collection<SymMatrixAdvancedExpr
 
     } // Concat
     } // Internal
-    } // Unsafe
 } // OperandTreeList

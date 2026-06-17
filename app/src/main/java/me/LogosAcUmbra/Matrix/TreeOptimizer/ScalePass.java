@@ -1,5 +1,6 @@
 package me.LogosAcUmbra.Matrix.TreeOptimizer;
 
+import io.vavr.control.Either;
 import it.unimi.dsi.fastutil.Stack;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanStack;
@@ -18,37 +19,31 @@ public class ScalePass implements OptimizationPass {
 
     @Override
     public @NonNull SymMatrixAdvancedExpr apply(@NonNull SymMatrixAdvancedExpr root, @NonNull ExprEvaluator symjaExprEvaluator) {
-        SymMatrixAdvancedExpr optimized = optimize(root, symjaExprEvaluator);
-        if (optimized == null) {
-            return ZeroExpr.ofSize(root.getNumRows(), root.getNumCols());
-        }
-        return optimized;
+        return optimize(root, symjaExprEvaluator);
     }
 
-    private @Nullable SymMatrixAdvancedExpr optimize(@NonNull SymMatrixAdvancedExpr root, @NonNull ExprEvaluator symjaExprEvaluator) {
-        final int ZERO_OP_SPECIFIER = -1;
+    private @NonNull SymMatrixAdvancedExpr optimize(@NonNull SymMatrixAdvancedExpr root, @NonNull ExprEvaluator symjaExprEvaluator) {
         final int SCALE_OP_SPECIFIER = -2;
         final int ONE_OP_NOT_SCALE_SPECIFIER = -3;
-        assert SCALE_OP_SPECIFIER != ONE_OP_NOT_SCALE_SPECIFIER && SCALE_OP_SPECIFIER != ZERO_OP_SPECIFIER && ONE_OP_NOT_SCALE_SPECIFIER != ZERO_OP_SPECIFIER;
-        assert SCALE_OP_SPECIFIER < 0 && ONE_OP_NOT_SCALE_SPECIFIER < 0 && ZERO_OP_SPECIFIER < 0;
+        assert SCALE_OP_SPECIFIER != ONE_OP_NOT_SCALE_SPECIFIER;
+        assert SCALE_OP_SPECIFIER < 0 && ONE_OP_NOT_SCALE_SPECIFIER < 0;
 
-        // err yes, we have 4 parallel lists / stacks
+        // err yes, we have 3 parallel lists / stacks
         ObjectArrayList<@NonNull SymMatrixAdvancedExpr> nodesDealing = new ObjectArrayList<>();
         IntArrayList numChildrenDealtOfNodes = new IntArrayList();
         BooleanArrayList isChildCalledOfNodes = new BooleanArrayList();
-        Stack<@Nullable ObjectArrayList<SymMatrixAdvancedExpr>> buildersOfManyOpNodes = new ObjectArrayList<>();
 
         // align root with conditions in loop
-        if (root instanceof ZeroExpr) {
-            return null;
+        if (root instanceof ConstOperandExpr) {
+            return root;
         }
         optimizeHelper_pushOperand(
                 root,
-                nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes,
-                ZERO_OP_SPECIFIER, SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER
+                nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes,
+                SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER
         );
 
-        SymMatrixAdvancedExpr returnVal = null; // initialize with null for compile, but logically, should be no need to initialize
+        SymMatrixAdvancedExpr returnVal = root; // initialize with root for compile, but logically, should be no need to initialize
 
         while (!nodesDealing.isEmpty()) { // this whole loop uses unsafeSetOperand or unsafeSetOperands
 
@@ -56,28 +51,24 @@ public class ScalePass implements OptimizationPass {
             final int numChildrenDealt = numChildrenDealtOfNodes.topInt();
             final boolean isChildCalled = isChildCalledOfNodes.topBoolean();
 
+            assert !(topExpr instanceof ConstOperandExpr);
             if (!isChildCalled) {
-                if (numChildrenDealt == ZERO_OP_SPECIFIER) {
-                    // # Unwind
-                    returnVal = null;
-                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
-                    continue;
-                }
                 if (numChildrenDealt == SCALE_OP_SPECIFIER) {
                     // if topExpr instanceof ScaleExpr
                     // deal with current expr
-                    ScaleExpr topFlattenedScale = flattenScaleExpr( (ScaleExpr) topExpr );
-                    if (topFlattenedScale == null) {
+                    Either<ScaleExpr, ZeroExpr> topFlattened = flattenScaleExpr( (ScaleExpr) topExpr );
+                    if (topFlattened.isRight()) {
                         // # Unwind
-                        returnVal = null;
-                        optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
+                        returnVal = topFlattened.get(); // get() is getRight()
+                        optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
                         continue;
                     }
+                    ScaleExpr topFlattenedScale = topFlattened.getLeft();
                     IExpr evaluatedScalar = symjaExprEvaluator.eval(topFlattenedScale.getScalar());
                     if (evaluatedScalar.equals(F.C0)) {
                         // # Unwind
-                        returnVal = null;
-                        optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
+                        returnVal = ZeroExpr.ofSize(  topFlattenedScale.getNumRows(), topFlattenedScale.getNumCols()  );
+                        optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
                         continue;
                     }
 
@@ -89,11 +80,16 @@ public class ScalePass implements OptimizationPass {
                     {
                         // set current expr to childCalled (have called optimize recursively to child)
                         arrayListHelper_setTopOf(isChildCalledOfNodes, true);
-                        // # Wind-up
-                        optimizeHelper_pushOperand(
-                                operand,
-                                nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes,
-                                ZERO_OP_SPECIFIER, SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                        if (operand instanceof ConstOperandExpr) {
+                            // # Not Wind-up Or Unwind
+                            returnVal = operand;
+                        } else {
+                            // # Wind-up
+                            optimizeHelper_pushOperand(
+                                    operand,
+                                    nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes,
+                                    SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                        }
                     }
                     continue;
                 } // end bracket of: if topExpr instanceof ScaleExpr
@@ -104,11 +100,16 @@ public class ScalePass implements OptimizationPass {
                     {
                         // set current expr to childCalled (have called optimize recursively to child)
                         arrayListHelper_setTopOf(isChildCalledOfNodes, true);
-                        // # Wind-up
-                        optimizeHelper_pushOperand(
-                                operand,
-                                nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes,
-                                ZERO_OP_SPECIFIER, SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                        if (operand instanceof ConstOperandExpr) {
+                            // # Not Wind-up Or Unwind
+                            returnVal = operand;
+                        } else {
+                            // # Wind-up
+                            optimizeHelper_pushOperand(
+                                    operand,
+                                    nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes,
+                                    SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                        }
                     }
                     continue;
                 } // end bracket of: if topExpr instanceof OneOperandExpr
@@ -118,43 +119,53 @@ public class ScalePass implements OptimizationPass {
                 ManyOperandExpr topManyExpr = (ManyOperandExpr) topExpr;
                 OperandTreeList operands = topManyExpr.getOperandsRef();
 
-                if (operands.isEmpty()) {
-                    // # Unwind
-                    returnVal = null;
-                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
-                    continue;
-                }
-
                 if (numChildrenDealt == 0) {
+                    if (operands.isEmpty()) {
+                        // # Unwind
+                        returnVal = topManyExpr; // cannot optimize anything
+                        optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
+                        continue;
+                    }
                     operands = operands.toCollapsedAndUpdateParent();
                     topManyExpr.unsafeSetOperands(operands);
                 }
 
-                assert numChildrenDealt >= 0 && numChildrenDealt < operands.size();
+                assert !operands.isEmpty() &&numChildrenDealt >= 0 && numChildrenDealt < operands.size();
                 SymMatrixAdvancedExpr operand = operands.get(  numChildrenDealt  );
                 // the following is actually the same as branch ONE_OP_NOT_SCALE_SPECIFIER
                 {
                     // set current expr to childCalled (have called optimize recursively to child)
                     arrayListHelper_setTopOf(isChildCalledOfNodes, true);
-                    // # Wind-up
-                    optimizeHelper_pushOperand(
-                            operand,
-                            nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes,
-                            ZERO_OP_SPECIFIER, SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                    if (operand instanceof ConstOperandExpr) {
+                        // # Not Wind-up Or Unwind
+                        returnVal = operand;
+                    } else {
+                        // # Wind-up
+                        optimizeHelper_pushOperand(
+                                operand,
+                                nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes,
+                                SCALE_OP_SPECIFIER, ONE_OP_NOT_SCALE_SPECIFIER);
+                    }
                 }
                 continue;
             } // end bracket of: if !isChildCalled
 
             // isChildCalled
-            assert !(topExpr instanceof ZeroExpr);
             if (numChildrenDealt == SCALE_OP_SPECIFIER) {
+                if (returnVal instanceof ZeroExpr) {
+                    // # Unwind
+                    // returnVal = returnVal;
+                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
+                    continue;
+                }
+
                 ScaleExpr topEvaluatedFlattenedScale = (ScaleExpr) topExpr;
 
                 // return topEvaluatedFlattenedScale.operand (reduce a useless scale layer) if exprScale has scalar of 1
                 if (topEvaluatedFlattenedScale.getScalar().equals(F.C1)) {
                     // # Unwind
                     // returnVal = returnVal; // let the returnVal return up without modifying
-                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
+                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
                     continue;
                 }
                 // MAY NOT BE continued (MAY NOT go back up)
@@ -163,33 +174,24 @@ public class ScalePass implements OptimizationPass {
                     || numChildrenDealt == ONE_OP_NOT_SCALE_SPECIFIER) { // if OneOp (including Scale)
                 assert topExpr instanceof OneOperandExpr; // this assert is useless, if I am correct. so this assert is for if I am incorrect
 
-                if (returnVal == null) {
-                    // # Unwind
-                    // return null
-                    optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
-                    continue;
-                }
                 OneOperandExpr topOneOp = (OneOperandExpr) topExpr;
                 topOneOp.unsafeSetOperand(returnVal);
                 // # Unwind
                 returnVal = topOneOp;
-                optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
+                optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
                 continue;
             }
             // for this branch: topExpr is instanceof ManyOperandExpr
             assert topExpr instanceof ManyOperandExpr; // this assert should be useless
 
-            ObjectArrayList<SymMatrixAdvancedExpr> opBuilder = buildersOfManyOpNodes.top();
             ManyOperandExpr topManyOp = (ManyOperandExpr) topExpr;
-            assert numChildrenDealt < topManyOp.getOperandsRef().size();
-            assert opBuilder != null;
+            OperandTreeList operands = topManyOp.getOperandsRef();
+            assert numChildrenDealt < operands.size();
 
-            if (returnVal == null) { // do nth
-            } else {
-                opBuilder.add(  returnVal  );
-            }
+            operands.unsafeSetElem(numChildrenDealt, returnVal);
+
             int updatedNumChildrenDealt = numChildrenDealt + 1;
-            if (updatedNumChildrenDealt < topManyOp.getOperandsRef().size()) { // current manyOpExpr not finished
+            if (updatedNumChildrenDealt < operands.size()) { // current manyOpExpr not finished
                 // # Not Wind-up Or Unwind
                 arrayListHelper_setTopOf(numChildrenDealtOfNodes, updatedNumChildrenDealt);
                 arrayListHelper_setTopOf(isChildCalledOfNodes, false);
@@ -197,11 +199,10 @@ public class ScalePass implements OptimizationPass {
                 continue;
             }
             // current manyOpExpr is finished
-            OperandTreeList optimizedOperands = OperandTreeList.of(  opBuilder  );
-            topManyOp.unsafeSetOperands(  optimizedOperands  );
+            topManyOp.unsafeSetOperands(  operands  );
             // # Unwind
             returnVal = topManyOp;
-            optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes, buildersOfManyOpNodes);
+            optimizeHelper_pop(nodesDealing, numChildrenDealtOfNodes, isChildCalledOfNodes);
             continue;
         } // end bracket of: while (!stack.empty())
         return returnVal;
@@ -212,8 +213,6 @@ public class ScalePass implements OptimizationPass {
             Stack<@NonNull SymMatrixAdvancedExpr> nodesDealing,
             IntStack numChildrenDealtOfNodes,
             BooleanArrayList isChildCalledOfNodes,
-            Stack<@Nullable ObjectArrayList<SymMatrixAdvancedExpr>> buildersOfManyOpNodes,
-            final int ZERO_OP_SPECIFIER,
             final int SCALE_OP_SPECIFIER,
             final int ONE_OP_NOT_SCALE_SPECIFIER
     ) {
@@ -221,29 +220,21 @@ public class ScalePass implements OptimizationPass {
         nodesDealing.push(operand);
         isChildCalledOfNodes.push(false);
 
+        assert !(operand instanceof ConstOperandExpr);
         switch (operand) {
-            // # Wind-up
-            case ZeroExpr ignored: {
-                numChildrenDealtOfNodes.push(ZERO_OP_SPECIFIER);
-                buildersOfManyOpNodes.push(null);
-                return;
-            }
             // # Wind-up
             case ScaleExpr ignored: {
                 numChildrenDealtOfNodes.push(SCALE_OP_SPECIFIER);
-                buildersOfManyOpNodes.push(null);
                 return;
             }
             // # Wind-up
             case OneOperandExpr ignored: {
                 numChildrenDealtOfNodes.push(ONE_OP_NOT_SCALE_SPECIFIER);
-                buildersOfManyOpNodes.push(null);
                 return;
             }
             // # Wind-up
             case ManyOperandExpr exprManyOp: {
                 numChildrenDealtOfNodes.push(0);
-                buildersOfManyOpNodes.push(new ObjectArrayList<>(  exprManyOp.getOperandsRef().size()  ));
                 return;
             }
             default: throw new IllegalStateException("UnreachableCodeReached: illegal type of operand. Info: { operand: " + operand + " }");
@@ -253,11 +244,9 @@ public class ScalePass implements OptimizationPass {
     private void optimizeHelper_pop(
             Stack<@NonNull SymMatrixAdvancedExpr> nodesDealing,
             IntStack numChildrenDealtOfNodes,
-            BooleanStack isChildCalledOfNodes,
-            Stack<@Nullable ObjectArrayList<SymMatrixAdvancedExpr>> buildersOfManyOpNodes
+            BooleanStack isChildCalledOfNodes
     ) {
         nodesDealing.pop();
-        buildersOfManyOpNodes.pop();
         numChildrenDealtOfNodes.popInt();
         isChildCalledOfNodes.popBoolean();
     }
@@ -329,14 +318,14 @@ public class ScalePass implements OptimizationPass {
      * <br>
      * Flatten-able: ScaleExpr, NegExpr
      * @param scaleExpr the scaleExpr
-     * @return if the given scaleExpr has operand of ZeroExpr, null. <br>
-     * If the given scaleExpr cannot be flattened: scaleExpr. <br>
-     * else: a flattened new ScaleExpr instance
+     * @return if the given {@code scaleExpr} has {@code operand} of {@link ZeroExpr}: the {@code operand}. <br>
+     * If the given {@code scaleExpr} cannot be flattened: {@code scaleExpr}. <br>
+     * else: a flattened {@code ScaleExpr} instance.
      */
-    private @Nullable ScaleExpr flattenScaleExpr(@NonNull ScaleExpr scaleExpr) {
+    private @NonNull Either<ScaleExpr, ZeroExpr> flattenScaleExpr(@NonNull ScaleExpr scaleExpr) {
         SymMatrixExpr operandOfScale = scaleExpr.getOperandRef();
-        if (operandOfScale instanceof ZeroExpr) {
-            return null;
+        if (operandOfScale instanceof ZeroExpr zeroOperand) {
+            return Either.right(zeroOperand);
         }
         IExpr scalar = scaleExpr.getScalar();
         return switch (operandOfScale) {
@@ -344,14 +333,14 @@ public class ScalePass implements OptimizationPass {
                     flattenToScaleFromNeg(negOperandOfScale, scalar);
             case ScaleExpr scaleOperandOfScale -> // logger.log("double layer of scale found when ScalePass of tree-optimizing")
                     flattenToScaleFromScale(scaleOperandOfScale, scalar);
-            default -> scaleExpr; // cannot flatten
+            default -> Either.left(  scaleExpr  ); // cannot flatten
         };
     }
 
     /**
      * for each function call, we do: <br>
      * <br>
-     * if the {@code scaleExpr.operand} is ZeroExpr (expr of zero matrix): {@code return null} <br>
+     * if the {@code scaleExpr.operand} is ZeroExpr (expr of zero matrix): {@code return scaleExpr.operand} <br>
      * <br>
      * else, if the operand is flatten-able (ScaleExpr or NegExpr):
      * according to the type of scaleExpr,
@@ -364,12 +353,12 @@ public class ScalePass implements OptimizationPass {
      * operand=scaleExpr.operand, and scalar={@link F#Times}( {@code scalar}, {@code scaleExpr.scalar} )
      * @param scaleExpr the scaleExpr with its scalar going to be extracted
      * @param scalar the scalar from parents of scaleExpr
-     * @return a flattened new ScaleExpr instance
+     * @return a flattened new ScaleExpr instance, or a ZeroExpr instance
      */
-    private @Nullable ScaleExpr flattenToScaleFromScale(@NonNull ScaleExpr scaleExpr, @NonNull IExpr scalar) {
+    private @NonNull Either<ScaleExpr, ZeroExpr> flattenToScaleFromScale(@NonNull ScaleExpr scaleExpr, @NonNull IExpr scalar) {
         SymMatrixExpr operandOfScale = scaleExpr.getOperandRef();
-        if (operandOfScale instanceof ZeroExpr) {
-            return null;
+        if (operandOfScale instanceof ZeroExpr zeroOperand) {
+            return Either.right(  zeroOperand  );
         }
         IExpr newScalar = F.Times(scalar, scaleExpr.getScalar());
         return switch (operandOfScale) {
@@ -377,14 +366,14 @@ public class ScalePass implements OptimizationPass {
                     flattenToScaleFromNeg(negOperandOfScale, newScalar);
             case ScaleExpr scaleOperandOfScale -> // logger.log("double layer of scale found when ScalePass of tree-optimizing")
                     flattenToScaleFromScale(scaleOperandOfScale, newScalar);
-            default -> ScaleExpr.of(operandOfScale, newScalar); // cannot flatten further
+            default -> Either.left(  ScaleExpr.of(operandOfScale, newScalar)  ); // cannot flatten further
         };
     }
 
-    private @Nullable ScaleExpr flattenToScaleFromNeg(@NonNull NegExpr negExpr, @NonNull IExpr scalar) {
+    private @NonNull Either<ScaleExpr, ZeroExpr> flattenToScaleFromNeg(@NonNull NegExpr negExpr, @NonNull IExpr scalar) {
         SymMatrixExpr operandOfScale = negExpr.getOperandRef();
-        if (operandOfScale instanceof ZeroExpr) {
-            return null;
+        if (operandOfScale instanceof ZeroExpr zeroOperand) {
+            return Either.right(  zeroOperand  );
         }
         IExpr newScalar = F.Times(scalar, F.CN1);
         return switch (operandOfScale) {
@@ -393,7 +382,7 @@ public class ScalePass implements OptimizationPass {
                     flattenToScaleFromNeg(negOperandOfScale, newScalar);
             case ScaleExpr scaleOperandOfScale ->
                     flattenToScaleFromScale(scaleOperandOfScale, newScalar);
-            default -> ScaleExpr.of(operandOfScale, newScalar); // cannot flatten further
+            default -> Either.left(  ScaleExpr.of(operandOfScale, newScalar)  ); // cannot flatten further
         };
     }
 
